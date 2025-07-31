@@ -10,8 +10,9 @@ import base64
 import tempfile
 from typing import Dict, Any, Optional
 import torch
-from transformers import pipeline
-from diffusers import StableDiffusionPipeline
+import subprocess
+import sys
+from huggingface_hub import hf_hub_download
 import cv2
 import numpy as np
 from PIL import Image
@@ -24,33 +25,63 @@ def download_input():
     return job_input
 
 def load_kiss_models():
-    """Load Hugging Face kiss generation models"""
+    """Load Wan-AI models and Remade-AI LoRA for kiss generation"""
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    
     models = {}
     
     try:
-        # Load Wan-AI kissing model (placeholder - replace with actual model)
-        models['wan_ai'] = pipeline(
-            "image-to-video",
-            model="Wan-AI/kissing-video-generation",
-            device=device,
-            torch_dtype=torch.float16 if device == "cuda" else torch.float32
-        )
+        # Load Wan-AI I2V 14B model (base model for kissing LoRA)
+        print("Loading Wan-AI I2V 14B model...")
+        wan_model_path = "/app/models/Wan2.1-I2V-14B-720P"
+        
+        # Check if model exists, if not download it
+        if not os.path.exists(wan_model_path):
+            print("Downloading Wan-AI I2V model...")
+            os.makedirs("/app/models", exist_ok=True)
+            subprocess.run([
+                "huggingface-cli", "download", 
+                "Wan-AI/Wan2.1-I2V-14B-720P",
+                "--local-dir", wan_model_path
+            ], check=True)
+        
+        models['wan_ai'] = {
+            'model_path': wan_model_path,
+            'type': 'wan_i2v',
+            'resolution': (1280, 720),
+            'loaded': True
+        }
+        
     except Exception as e:
         print(f"Failed to load Wan-AI model: {e}")
         models['wan_ai'] = None
     
     try:
-        # Load Remade-AI kissing model (placeholder - replace with actual model)
-        models['remade_ai'] = pipeline(
-            "image-to-video", 
-            model="Remade-AI/kissing",
-            device=device,
-            torch_dtype=torch.float16 if device == "cuda" else torch.float32
-        )
+        # Load Remade-AI kissing LoRA
+        print("Loading Remade-AI kissing LoRA...")
+        lora_path = "/app/models/kissing-lora"
+        
+        # Download LoRA if not exists
+        if not os.path.exists(lora_path):
+            print("Downloading Remade-AI kissing LoRA...")
+            os.makedirs(lora_path, exist_ok=True)
+            subprocess.run([
+                "huggingface-cli", "download", 
+                "Remade-AI/kissing",
+                "--local-dir", lora_path
+            ], check=True)
+        
+        models['remade_ai'] = {
+            'base_model': wan_model_path,
+            'lora_path': lora_path,
+            'type': 'wan_lora',
+            'lora_strength': 1.0,
+            'guidance_scale': 6.0,
+            'flow_shift': 5.0,
+            'loaded': True
+        }
+        
     except Exception as e:
-        print(f"Failed to load Remade-AI model: {e}")
+        print(f"Failed to load Remade-AI LoRA: {e}")
         models['remade_ai'] = None
     
     return models
@@ -67,49 +98,83 @@ def preprocess_images(source_image_data: str, target_image_data: str) -> tuple:
     if target_image.mode != 'RGB':
         target_image = target_image.convert('RGB')
     
-    # Resize to standard dimensions (512x512 for most models)
-    source_image = source_image.resize((512, 512))
-    target_image = target_image.resize((512, 512))
+    # Resize to appropriate dimensions based on model
+    # Wan-AI I2V supports 720P (1280x720) and 480P (832x480)
+    source_image = source_image.resize((1280, 720))
+    target_image = target_image.resize((1280, 720))
     
     return source_image, target_image
 
 def generate_kiss_video(models: Dict, source_image: Image.Image, target_image: Image.Image, 
-                       model_name: str = "wan_ai", **kwargs) -> Optional[str]:
-    """Generate kiss video using specified model"""
+                       model_name: str = "remade_ai", **kwargs) -> Optional[str]:
+    """Generate kiss video using Wan-AI base model with Remade-AI kissing LoRA"""
     
     if model_name not in models or models[model_name] is None:
         raise ValueError(f"Model {model_name} not available")
     
-    model = models[model_name]
+    model_config = models[model_name]
     
     try:
-        # Create prompt for kiss video generation
-        prompt = kwargs.get('prompt', "Two people kissing romantically, smooth motion, high quality")
+        # Save source image temporarily
+        temp_image_path = tempfile.mktemp(suffix='.jpg')
+        source_image.save(temp_image_path, 'JPEG')
         
-        # Generate video frames
+        # Create output path
+        output_path = tempfile.mktemp(suffix='.mp4')
+        
         if model_name == "wan_ai":
-            result = model(
-                prompt=prompt,
-                image=source_image,
-                target_image=target_image,
-                num_frames=kwargs.get('num_frames', 16),
-                guidance_scale=kwargs.get('guidance_scale', 7.5),
-                num_inference_steps=kwargs.get('num_inference_steps', 50)
-            )
+            # Basic Wan-AI I2V generation (without LoRA)
+            prompt = kwargs.get('prompt', "Two people in a romantic scene, cinematic lighting, high quality")
+            
+            cmd = [
+                "python", "/app/generate.py",
+                "--task", "i2v-14B",
+                "--size", "1280*720",
+                "--ckpt_dir", model_config['model_path'],
+                "--image", temp_image_path,
+                "--prompt", prompt,
+                "--output", output_path,
+                "--sample_guide_scale", str(kwargs.get('guidance_scale', 6.0)),
+                "--sample_shift", str(kwargs.get('sample_shift', 8))
+            ]
+            
         elif model_name == "remade_ai":
-            result = model(
-                prompt=prompt,
-                image=source_image,
-                target_image=target_image,
-                num_frames=kwargs.get('num_frames', 24),
-                guidance_scale=kwargs.get('guidance_scale', 8.0),
-                num_inference_steps=kwargs.get('num_inference_steps', 40)
-            )
+            # Wan-AI with Remade-AI kissing LoRA
+            # Use special k144ing trigger word for kissing LoRA
+            base_prompt = kwargs.get('prompt', "Two heads, cinematic romantic lighting")
+            kissing_prompt = f"{base_prompt}, k144ing kissing softly"
+            
+            cmd = [
+                "python", "/app/generate_with_lora.py",
+                "--task", "i2v-14B",
+                "--size", "1280*720", 
+                "--ckpt_dir", model_config['base_model'],
+                "--lora_path", model_config['lora_path'],
+                "--lora_strength", str(model_config['lora_strength']),
+                "--image", temp_image_path,
+                "--prompt", kissing_prompt,
+                "--output", output_path,
+                "--sample_guide_scale", str(model_config['guidance_scale']),
+                "--flow_shift", str(model_config['flow_shift'])
+            ]
         
-        # Convert result to video file
-        video_path = save_video_frames(result.frames if hasattr(result, 'frames') else result)
+        # Run the generation command
+        print(f"Running command: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         
-        return video_path
+        if result.returncode != 0:
+            print(f"Generation failed: {result.stderr}")
+            return None
+        
+        # Clean up temporary image
+        if os.path.exists(temp_image_path):
+            os.remove(temp_image_path)
+        
+        if os.path.exists(output_path):
+            return output_path
+        else:
+            print("Output video file not generated")
+            return None
         
     except Exception as e:
         print(f"Error generating video with {model_name}: {e}")
@@ -211,9 +276,9 @@ if __name__ == "__main__":
         'target_image': 'base64_encoded_image_data_here',
         'model': 'wan_ai',
         'parameters': {
-            'num_frames': 16,
-            'guidance_scale': 7.5,
-            'prompt': 'Two people kissing romantically'
+            'guidance_scale': 6.0,
+            'flow_shift': 5.0,
+            'prompt': 'Two heads, cinematic romantic lighting, k144ing kissing softly'
         }
     }
     

@@ -12,8 +12,11 @@ A serverless API for generating kiss videos using state-of-the-art AI models fro
 
 ## Supported Models
 
-- **Wan-AI/kissing-video-generation**: Fast generation with good quality
-- **Remade-AI/kissing**: High-quality diffusion-based generation
+- **Wan-AI/Wan2.1-I2V-14B-720P**: Base image-to-video model (720P resolution)
+- **Remade-AI/kissing**: LoRA for kiss video generation (requires special "k144ing" trigger word)
+  - Trained on Wan2.1 14B I2V 480p base model
+  - 30 epochs training on 50 seconds of kissing video clips
+  - Recommended settings: LoRA strength 1.0, guidance scale 6.0, flow shift 5.0
 
 ## Quick Start
 
@@ -187,9 +190,9 @@ runpod_api = RunPodKissAPI(
 async def generate_video(request: VideoRequest):
     result = await runpod_api.generate_kiss_video(
         source_image_path=request.source_image,
-        target_image_path=request.target_image,
         model=request.model,
-        num_frames=request.num_frames
+        guidance_scale=request.guidance_scale,
+        prompt=request.prompt
     )
     return result
 ```
@@ -197,12 +200,17 @@ async def generate_video(request: VideoRequest):
 ### Frontend Integration (React)
 
 ```javascript
-const generateKissVideo = async (sourceImage, targetImage, options = {}) => {
+const generateKissVideo = async (sourceImage, options = {}) => {
   const formData = new FormData();
   formData.append('source_image', sourceImage);
-  formData.append('target_image', targetImage);
-  formData.append('model', options.model || 'wan_ai');
-  formData.append('parameters', JSON.stringify(options.parameters || {}));
+  formData.append('model', options.model || 'remade_ai');
+  formData.append('parameters', JSON.stringify({
+    guidance_scale: 6.0,
+    flow_shift: 5.0,
+    lora_strength: 1.0,
+    prompt: 'Two heads, cinematic romantic lighting, k144ing kissing softly',
+    ...options.parameters
+  }));
   
   const response = await fetch('/api/generate-kiss-video', {
     method: 'POST',
@@ -256,8 +264,8 @@ Edit `runpod_config.py` to adjust:
 
 Estimated costs on RunPod (RTX 4090):
 
-- **Wan-AI Model**: ~$0.10-0.20 per video (15-30 seconds generation)
-- **Remade-AI Model**: ~$0.30-0.50 per video (60-120 seconds generation)
+- **Wan-AI I2V Base Model**: ~$0.15-0.25 per video (30-60 seconds generation)
+- **Remade-AI Kissing LoRA**: ~$0.20-0.35 per video (45-90 seconds generation)
 
 *Costs vary based on GPU availability and generation parameters*
 
@@ -305,11 +313,27 @@ python main.py
 ### Model Updates
 
 1. Update model IDs in `runpod_config.py`
-2. Test locally
-3. Rebuild and redeploy:
+2. For new LoRAs, update `generate_with_lora.py`
+3. Test locally with mock implementation
+4. Rebuild and redeploy:
    ```bash
    python deploy.py
    ```
+
+### Important Prompt Guidelines
+
+#### For Remade-AI Kissing LoRA:
+- **Always include "k144ing kissing"** in the prompt
+- Examples:
+  - "Two heads, cinematic romantic lighting, k144ing kissing softly"
+  - "A man and woman in snowy mountains, k144ing kissing"
+  - "Passionate scene with k144ing kissing"
+
+#### For Wan-AI Base Model:
+- Use descriptive scene prompts
+- Examples:
+  - "Two people in a romantic scene, cinematic lighting"
+  - "Couple embracing in beautiful garden setting"
 
 ## License
 
