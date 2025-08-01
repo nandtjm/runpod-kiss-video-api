@@ -56,5 +56,5 @@ RUN mkdir -p /app/models /app/temp /runpod-volume
 RUN chmod +x main.py rp_handler.py || true
 RUN chmod +x test_handler.py || true
 
-# RunPod serverless handler entry point
-CMD ["python3", "-u", "rp_handler.py"]
+# Test API entry point (no model downloads)
+CMD ["python3", "-u", "test_api.py"]

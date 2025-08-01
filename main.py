@@ -32,15 +32,23 @@ def load_kiss_models():
         model_cache_dir = os.getenv("MODEL_CACHE_DIR", "/workspace/models")
         wan_model_path = f"{model_cache_dir}/Wan2.1-I2V-14B-720P"
         
-        # Check if model exists, if not download it
+        # Check if model exists, if not try to download it
         if not os.path.exists(wan_model_path):
             print("Downloading Wan-AI I2V model...")
             os.makedirs(model_cache_dir, exist_ok=True)
-            subprocess.run([
-                "huggingface-cli", "download", 
-                "Wan-AI/Wan2.1-I2V-14B-720P",
-                "--local-dir", wan_model_path
-            ], check=True)
+            try:
+                # Use timeout and retry logic for large downloads
+                subprocess.run([
+                    "huggingface-cli", "download", 
+                    "Wan-AI/Wan2.1-I2V-14B-720P",
+                    "--local-dir", wan_model_path,
+                    "--resume-download"  # Resume partial downloads
+                ], check=True, timeout=1800)  # 30 minute timeout
+            except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
+                print(f"Model download failed or timed out: {e}")
+                # Continue without this model for now
+                models['wan_ai'] = None
+                return models
         
         models['wan_ai'] = {
             'model_path': wan_model_path,
