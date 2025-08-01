@@ -1,7 +1,11 @@
+# Force rebuild by updating base image reference
 FROM runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
 
 # Set working directory
 WORKDIR /app
+
+# Cache buster - force complete rebuild
+RUN echo "Build timestamp: $(date)" > /tmp/build_info
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -26,14 +30,14 @@ ENV CUDA_HOME=/usr/local/cuda
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 ENV PYTHONUNBUFFERED=1
 
-# Copy requirements first for better Docker caching
-COPY requirements_minimal.txt requirements.txt ./
+# Copy clean requirements first for better Docker caching
+COPY requirements_clean.txt ./
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip
 
-# Install core dependencies first
-RUN pip install --no-cache-dir -r requirements_minimal.txt
+# Install clean dependencies only
+RUN pip install --no-cache-dir -r requirements_clean.txt
 
 # Install PyTorch with CUDA support
 RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
