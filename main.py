@@ -71,16 +71,23 @@ def download_model_from_hf(repo_id: str, local_dir: str, timeout: int = 300, min
         
         def download_worker():
             try:
+                print(f"Starting download of {repo_id}...")
+                
+                # Use snapshot_download with optimized settings for large models
                 snapshot_download(
                     repo_id=repo_id,
                     local_dir=local_dir,
                     resume_download=True,
-                    allow_patterns=["*.json", "*.bin", "*.safetensors", "*.txt", "*.py"],
-                    ignore_patterns=["*.git*", "*.md", "*.lock"]
+                    allow_patterns=["*.json", "*.bin", "*.safetensors", "*.txt", "*.py", "*.pth"],
+                    ignore_patterns=["*.git*", "*.md", "*.lock", "*.gitattributes"],
+                    max_workers=4,  # Parallel downloads
+                    local_dir_use_symlinks=False  # Direct copies, no symlinks
                 )
                 result_queue.put(("success", None))
             except Exception as e:
-                result_queue.put(("error", str(e)))
+                error_msg = str(e)
+                print(f"Download error for {repo_id}: {error_msg}")
+                result_queue.put(("error", error_msg))
         
         # Start download in separate thread with timeout
         download_thread = Thread(target=download_worker)
@@ -128,12 +135,12 @@ def load_kiss_models():
         'wan_ai': {
             'repo_id': 'Wan-AI/Wan2.1-I2V-14B-720P',
             'local_dir': f"{model_cache_dir}/Wan2.1-I2V-14B-720P",
-            'timeout': 180  # 3 minutes for base model
+            'timeout': 900  # 15 minutes for large base model (28GB)
         },
         'remade_ai': {
             'repo_id': 'Remade-AI/kissing',
             'local_dir': f"{model_cache_dir}/kissing-lora", 
-            'timeout': 120  # 2 minutes for LoRA
+            'timeout': 300  # 5 minutes for LoRA (400MB)
         }
     }
     
@@ -143,14 +150,32 @@ def load_kiss_models():
         config = model_configs['wan_ai']
         wan_model_path = config['local_dir']
         
-        # Check if model exists, if not try to download
-        if not os.path.exists(wan_model_path) or not os.listdir(wan_model_path):
-            print(f"Wan-AI model not found at {wan_model_path}, attempting download...")
+        # Check if model exists and is complete
+        model_complete = False
+        if os.path.exists(wan_model_path) and os.listdir(wan_model_path):
+            # Check for key model files to ensure download completed
+            key_files = ['config.json', 'model.safetensors', 'tokenizer.json']
+            existing_files = os.listdir(wan_model_path)
+            
+            # Check if any safetensors or bin files exist (model weights)
+            has_weights = any(f.endswith(('.safetensors', '.bin', '.pth')) for f in existing_files)
+            has_config = any(f.startswith('config') for f in existing_files)
+            
+            if has_weights and has_config:
+                model_complete = True
+                print(f"✅ Wan-AI model found and appears complete at {wan_model_path}")
+            else:
+                print(f"⚠️ Wan-AI model directory exists but appears incomplete, re-downloading...")
+        
+        if not model_complete:
+            print(f"Wan-AI model not found or incomplete at {wan_model_path}, attempting download...")
+            print(f"⏱️ Large model download may take 10-15 minutes...")
             
             if not download_model_from_hf(config['repo_id'], wan_model_path, config['timeout']):
-                print("Failed to download Wan-AI model")
+                print("❌ Failed to download Wan-AI model")
                 models['wan_ai'] = None
             else:
+                print("✅ Wan-AI model download completed")
                 models['wan_ai'] = {
                     'model_path': wan_model_path,
                     'type': 'wan_i2v',
@@ -158,7 +183,6 @@ def load_kiss_models():
                     'loaded': True
                 }
         else:
-            print(f"✅ Wan-AI model found at {wan_model_path}")
             models['wan_ai'] = {
                 'model_path': wan_model_path,
                 'type': 'wan_i2v', 
@@ -233,7 +257,7 @@ def load_kiss_models():
 def preprocess_images(source_image_data: str, target_image_data: str) -> tuple:
     """Preprocess source and target images - supports both URLs and base64"""
     def load_image_from_input(image_data: str) -> Image.Image:
-        """Load image from either URL or base64 data"""
+        """Load image from either URL or base64 data with retry logic"""
         try:
             # Check if it's a URL
             if image_data.startswith(('http://', 'https://')):
@@ -250,14 +274,33 @@ def preprocess_images(source_image_data: str, target_image_data: str) -> tuple:
                     'Upgrade-Insecure-Requests': '1',
                 }
                 
-                response = requests.get(image_data, headers=headers, timeout=30)
-                response.raise_for_status()
-                
-                # Check if it's actually HTML instead of image
-                if response.content.startswith(b'<!DOCTYPE') or response.content.startswith(b'<html'):
-                    raise ValueError(f"URL returned HTML page instead of image")
-                
-                return Image.open(BytesIO(response.content))
+                # Retry logic for image downloads
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        timeout = 60 + (attempt * 30)  # Increase timeout with each retry
+                        print(f"Attempt {attempt + 1}/{max_retries}, timeout: {timeout}s")
+                        
+                        response = requests.get(image_data, headers=headers, timeout=timeout)
+                        response.raise_for_status()
+                        
+                        # Check if it's actually HTML instead of image
+                        if response.content.startswith(b'<!DOCTYPE') or response.content.startswith(b'<html'):
+                            raise ValueError(f"URL returned HTML page instead of image")
+                        
+                        print(f"✅ Successfully downloaded image ({len(response.content)} bytes)")
+                        return Image.open(BytesIO(response.content))
+                        
+                    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                        if attempt < max_retries - 1:
+                            print(f"⚠️ Image download attempt {attempt + 1} failed: {e}")
+                            print(f"Retrying in 5 seconds...")
+                            import time
+                            time.sleep(5)
+                        else:
+                            raise requests.RequestException(f"Failed to download image after {max_retries} attempts: {e}")
+                    except Exception as e:
+                        raise e
             
             # Handle base64 data
             else:
