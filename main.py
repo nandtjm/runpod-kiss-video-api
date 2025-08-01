@@ -85,25 +85,40 @@ def load_kiss_models():
     return models
 
 def preprocess_images(source_image_data: str, target_image_data: str) -> tuple:
-    """Preprocess source and target images"""
+    """Preprocess source and target images - supports both URLs and base64"""
+    def load_image_from_input(image_data: str) -> Image.Image:
+        """Load image from either URL or base64 data"""
+        try:
+            # Check if it's a URL
+            if image_data.startswith(('http://', 'https://')):
+                print(f"Loading image from URL: {image_data[:50]}...")
+                response = requests.get(image_data, timeout=30)
+                response.raise_for_status()
+                return Image.open(BytesIO(response.content))
+            
+            # Handle base64 data
+            else:
+                # Remove data URL prefix if present
+                if image_data.startswith('data:image/'):
+                    image_data = image_data.split(',')[1]
+                
+                # Add padding if needed
+                image_data = image_data + '=' * (4 - len(image_data) % 4) % 4
+                
+                # Decode base64
+                return Image.open(BytesIO(base64.b64decode(image_data, validate=True)))
+                
+        except requests.RequestException as e:
+            raise ValueError(f"Failed to download image from URL: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Failed to process image data: {str(e)}")
+    
     try:
-        # Clean and validate base64 data
-        if source_image_data.startswith('data:image/'):
-            # Remove data URL prefix if present
-            source_image_data = source_image_data.split(',')[1]
-        if target_image_data.startswith('data:image/'):
-            target_image_data = target_image_data.split(',')[1]
-        
-        # Add padding if needed
-        source_image_data = source_image_data + '=' * (4 - len(source_image_data) % 4) % 4
-        target_image_data = target_image_data + '=' * (4 - len(target_image_data) % 4) % 4
-        
-        # Decode base64 images
-        source_image = Image.open(BytesIO(base64.b64decode(source_image_data, validate=True)))
-        target_image = Image.open(BytesIO(base64.b64decode(target_image_data, validate=True)))
+        source_image = load_image_from_input(source_image_data)
+        target_image = load_image_from_input(target_image_data)
         
     except Exception as e:
-        raise ValueError(f"Failed to decode base64 images: {str(e)}. Please ensure images are valid base64 encoded data.")
+        raise ValueError(f"Image processing error: {str(e)}. Please provide valid image URLs or base64 encoded data.")
     
     # Convert to RGB if needed
     if source_image.mode != 'RGB':
