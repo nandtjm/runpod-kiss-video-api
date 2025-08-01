@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional
 import torch
 import subprocess
 import sys
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, snapshot_download
 import cv2
 import numpy as np
 from PIL import Image
@@ -20,61 +20,174 @@ import requests
 from io import BytesIO
 import runpod
 
+def download_model_from_hf(repo_id: str, local_dir: str, timeout: int = 300) -> bool:
+    """Download model from Hugging Face Hub with timeout and progress tracking"""
+    try:
+        import time
+        from threading import Thread
+        import queue
+        
+        print(f"Downloading {repo_id} to {local_dir}...")
+        os.makedirs(local_dir, exist_ok=True)
+        
+        # Use a queue to communicate between threads
+        result_queue = queue.Queue()
+        
+        def download_worker():
+            try:
+                snapshot_download(
+                    repo_id=repo_id,
+                    local_dir=local_dir,
+                    resume_download=True,
+                    allow_patterns=["*.json", "*.bin", "*.safetensors", "*.txt", "*.py"],
+                    ignore_patterns=["*.git*", "*.md", "*.lock"]
+                )
+                result_queue.put(("success", None))
+            except Exception as e:
+                result_queue.put(("error", str(e)))
+        
+        # Start download in separate thread with timeout
+        download_thread = Thread(target=download_worker)
+        download_thread.daemon = True
+        download_thread.start()
+        
+        # Wait for completion or timeout
+        download_thread.join(timeout=timeout)
+        
+        if download_thread.is_alive():
+            print(f"Download timeout ({timeout}s) for {repo_id}")
+            return False
+        
+        # Check result
+        try:
+            status, error = result_queue.get_nowait()
+            if status == "success":
+                print(f"✅ Successfully downloaded {repo_id}")
+                return True
+            else:
+                print(f"❌ Download failed for {repo_id}: {error}")
+                return False
+        except queue.Empty:
+            print(f"❌ Download failed for {repo_id}: No result returned")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Download error for {repo_id}: {e}")
+        return False
+
 def load_kiss_models():
-    """Load Wan-AI models and Remade-AI LoRA for kiss generation"""
+    """Load Wan-AI models and Remade-AI LoRA for kiss generation with runtime download"""
     device = "cuda" if torch.cuda.is_available() else "cpu"
     models = {}
     
-    try:
-        # Load Wan-AI I2V 14B model (base model for kissing LoRA)
-        print("Loading Wan-AI I2V 14B model...")
-        # Use volume storage for models
-        model_cache_dir = os.getenv("MODEL_CACHE_DIR", "/workspace/models")
-        wan_model_path = f"{model_cache_dir}/Wan2.1-I2V-14B-720P"
-        
-        # Check if model exists, if not mark as unavailable
-        if not os.path.exists(wan_model_path):
-            print(f"Wan-AI model not found at {wan_model_path}")
-            print("Please pre-download the model to the volume storage before deployment")
-            models['wan_ai'] = None
-            return models
-        
-        models['wan_ai'] = {
-            'model_path': wan_model_path,
-            'type': 'wan_i2v',
-            'resolution': (1280, 720),
-            'loaded': True
+    # Use volume storage for models with fallback to local cache
+    model_cache_dir = os.getenv("MODEL_CACHE_DIR", "/workspace/models")
+    os.makedirs(model_cache_dir, exist_ok=True)
+    
+    # Model configurations
+    model_configs = {
+        'wan_ai': {
+            'repo_id': 'Wan-AI/Wan2.1-I2V-14B-720P',
+            'local_dir': f"{model_cache_dir}/Wan2.1-I2V-14B-720P",
+            'timeout': 180  # 3 minutes for base model
+        },
+        'remade_ai': {
+            'repo_id': 'Remade-AI/kissing',
+            'local_dir': f"{model_cache_dir}/kissing-lora", 
+            'timeout': 120  # 2 minutes for LoRA
         }
+    }
+    
+    # Load Wan-AI I2V 14B model (base model)
+    try:
+        print("Loading Wan-AI I2V 14B model...")
+        config = model_configs['wan_ai']
+        wan_model_path = config['local_dir']
+        
+        # Check if model exists, if not try to download
+        if not os.path.exists(wan_model_path) or not os.listdir(wan_model_path):
+            print(f"Wan-AI model not found at {wan_model_path}, attempting download...")
+            
+            if not download_model_from_hf(config['repo_id'], wan_model_path, config['timeout']):
+                print("Failed to download Wan-AI model")
+                models['wan_ai'] = None
+            else:
+                models['wan_ai'] = {
+                    'model_path': wan_model_path,
+                    'type': 'wan_i2v',
+                    'resolution': (1280, 720),
+                    'loaded': True
+                }
+        else:
+            print(f"✅ Wan-AI model found at {wan_model_path}")
+            models['wan_ai'] = {
+                'model_path': wan_model_path,
+                'type': 'wan_i2v', 
+                'resolution': (1280, 720),
+                'loaded': True
+            }
         
     except Exception as e:
         print(f"Failed to load Wan-AI model: {e}")
         models['wan_ai'] = None
     
+    # Load Remade-AI kissing LoRA
     try:
-        # Load Remade-AI kissing LoRA
         print("Loading Remade-AI kissing LoRA...")
-        lora_path = f"{model_cache_dir}/kissing-lora"
+        config = model_configs['remade_ai']
+        lora_path = config['local_dir']
         
-        # Check if LoRA exists, if not mark as unavailable
-        if not os.path.exists(lora_path):
-            print(f"Remade-AI LoRA not found at {lora_path}")
-            print("Please pre-download the LoRA to the volume storage before deployment")
-            models['remade_ai'] = None
-            return models
-        
-        models['remade_ai'] = {
-            'base_model': wan_model_path,
-            'lora_path': lora_path,
-            'type': 'wan_lora',
-            'lora_strength': 1.0,
-            'guidance_scale': 6.0,
-            'flow_shift': 5.0,
-            'loaded': True
-        }
+        # Check if LoRA exists, if not try to download
+        if not os.path.exists(lora_path) or not os.listdir(lora_path):
+            print(f"Remade-AI LoRA not found at {lora_path}, attempting download...")
+            
+            if not download_model_from_hf(config['repo_id'], lora_path, config['timeout']):
+                print("Failed to download Remade-AI LoRA")
+                models['remade_ai'] = None
+            else:
+                # Only create remade_ai model if base model is available
+                if models.get('wan_ai') is not None:
+                    models['remade_ai'] = {
+                        'base_model': wan_model_path,
+                        'lora_path': lora_path,
+                        'type': 'wan_lora',
+                        'lora_strength': 1.0,
+                        'guidance_scale': 6.0,
+                        'flow_shift': 5.0,
+                        'loaded': True
+                    }
+                else:
+                    print("Cannot create remade_ai model: base wan_ai model not available")
+                    models['remade_ai'] = None
+        else:
+            print(f"✅ Remade-AI LoRA found at {lora_path}")
+            # Only create remade_ai model if base model is available
+            if models.get('wan_ai') is not None:
+                models['remade_ai'] = {
+                    'base_model': wan_model_path,
+                    'lora_path': lora_path,
+                    'type': 'wan_lora',
+                    'lora_strength': 1.0,
+                    'guidance_scale': 6.0,
+                    'flow_shift': 5.0,
+                    'loaded': True
+                }
+            else:
+                print("Cannot create remade_ai model: base wan_ai model not available")
+                models['remade_ai'] = None
         
     except Exception as e:
         print(f"Failed to load Remade-AI LoRA: {e}")
         models['remade_ai'] = None
+    
+    # Summary
+    available_models = [k for k, v in models.items() if v is not None]
+    unavailable_models = [k for k, v in models.items() if v is None]
+    
+    if available_models:
+        print(f"✅ Available models: {', '.join(available_models)}")
+    if unavailable_models:
+        print(f"❌ Unavailable models: {', '.join(unavailable_models)}")
     
     return models
 
@@ -291,6 +404,15 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 'status': 'failed'
             }
         
+        # Check if requested model is available
+        if model_name not in models or models[model_name] is None:
+            available_models = [k for k, v in models.items() if v is not None]
+            return {
+                'error': f'Model {model_name} not available. Available models: {", ".join(available_models) if available_models else "None"}',
+                'status': 'failed',
+                'available_models': available_models
+            }
+
         # Generate video
         video_path = generate_kiss_video(
             models, 
@@ -302,7 +424,8 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         
         if not video_path:
             return {
-                'error': 'Failed to generate video'
+                'error': 'Failed to generate video - check logs for details',
+                'status': 'failed'
             }
         
         # Upload to storage
