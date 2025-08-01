@@ -52,8 +52,9 @@ COPY . .
 # Create directories for models and temporary files
 RUN mkdir -p /app/models /app/temp /runpod-volume
 
-# Set proper permissions
-RUN chmod +x main.py rp_handler.py test_handler.py
+# Set proper permissions (with error handling)
+RUN chmod +x main.py rp_handler.py || true
+RUN chmod +x test_handler.py || true
 
 # Test entry point to isolate issues
 CMD ["python3", "-u", "test_handler.py"]

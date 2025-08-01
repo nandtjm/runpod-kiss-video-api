@@ -7,8 +7,7 @@
 README.md
 SETUP_INSTRUCTIONS.md
 
-# Test files
-test_*.py
+# Test files (but keep test_handler.py for debugging)
 *_test.py
 
 # Temporary files
