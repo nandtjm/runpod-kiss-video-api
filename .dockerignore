@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+README.md
+SETUP_INSTRUCTIONS.md
+
+# Test files
+test_*.py
+*_test.py
+
+# Temporary files
+*.tmp
+*.log
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual environments
+venv/
+env/
+.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backup files
+*.backup
+Dockerfile.backup
