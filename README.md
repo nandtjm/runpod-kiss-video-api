@@ -29,7 +29,7 @@ A serverless API for generating kiss videos using state-of-the-art AI models fro
 ### 1. Clone and Setup
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/nandtjm/runpod-kiss-video-api.git
 cd runpod-kiss-api
 ```
 
