@@ -43,7 +43,19 @@ export RUNPOD_API_KEY="your-runpod-api-key-here"
 export DOCKER_REGISTRY="your-dockerhub-username"
 ```
 
-### 3. Deploy to RunPod
+### 3. Pre-download Models
+
+**Important**: Models must be pre-downloaded to RunPod volume storage before deployment.
+
+```bash
+# Download all required models (this may take 30+ minutes)
+python download_models.py
+
+# Verify models are downloaded correctly
+python download_models.py verify
+```
+
+### 4. Deploy to RunPod
 
 ```bash
 # Make deployment script executable

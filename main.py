@@ -32,23 +32,12 @@ def load_kiss_models():
         model_cache_dir = os.getenv("MODEL_CACHE_DIR", "/workspace/models")
         wan_model_path = f"{model_cache_dir}/Wan2.1-I2V-14B-720P"
         
-        # Check if model exists, if not try to download it
+        # Check if model exists, if not mark as unavailable
         if not os.path.exists(wan_model_path):
-            print("Downloading Wan-AI I2V model...")
-            os.makedirs(model_cache_dir, exist_ok=True)
-            try:
-                # Use timeout and retry logic for large downloads
-                subprocess.run([
-                    "huggingface-cli", "download", 
-                    "Wan-AI/Wan2.1-I2V-14B-720P",
-                    "--local-dir", wan_model_path,
-                    "--resume-download"  # Resume partial downloads
-                ], check=True, timeout=1800)  # 30 minute timeout
-            except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
-                print(f"Model download failed or timed out: {e}")
-                # Continue without this model for now
-                models['wan_ai'] = None
-                return models
+            print(f"Wan-AI model not found at {wan_model_path}")
+            print("Please pre-download the model to the volume storage before deployment")
+            models['wan_ai'] = None
+            return models
         
         models['wan_ai'] = {
             'model_path': wan_model_path,
@@ -66,15 +55,12 @@ def load_kiss_models():
         print("Loading Remade-AI kissing LoRA...")
         lora_path = f"{model_cache_dir}/kissing-lora"
         
-        # Download LoRA if not exists
+        # Check if LoRA exists, if not mark as unavailable
         if not os.path.exists(lora_path):
-            print("Downloading Remade-AI kissing LoRA...")
-            os.makedirs(lora_path, exist_ok=True)
-            subprocess.run([
-                "huggingface-cli", "download", 
-                "Remade-AI/kissing",
-                "--local-dir", lora_path
-            ], check=True)
+            print(f"Remade-AI LoRA not found at {lora_path}")
+            print("Please pre-download the LoRA to the volume storage before deployment")
+            models['remade_ai'] = None
+            return models
         
         models['remade_ai'] = {
             'base_model': wan_model_path,
@@ -278,7 +264,7 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         # Parse input
         source_image_data = job_input.get('source_image')
         target_image_data = job_input.get('target_image')
-        model_name = job_input.get('model', 'wan_ai')
+        model_name = job_input.get('model', 'remade_ai')
         
         if not source_image_data or not target_image_data:
             return {
