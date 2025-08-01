@@ -86,9 +86,24 @@ def load_kiss_models():
 
 def preprocess_images(source_image_data: str, target_image_data: str) -> tuple:
     """Preprocess source and target images"""
-    # Decode base64 images
-    source_image = Image.open(BytesIO(base64.b64decode(source_image_data)))
-    target_image = Image.open(BytesIO(base64.b64decode(target_image_data)))
+    try:
+        # Clean and validate base64 data
+        if source_image_data.startswith('data:image/'):
+            # Remove data URL prefix if present
+            source_image_data = source_image_data.split(',')[1]
+        if target_image_data.startswith('data:image/'):
+            target_image_data = target_image_data.split(',')[1]
+        
+        # Add padding if needed
+        source_image_data = source_image_data + '=' * (4 - len(source_image_data) % 4) % 4
+        target_image_data = target_image_data + '=' * (4 - len(target_image_data) % 4) % 4
+        
+        # Decode base64 images
+        source_image = Image.open(BytesIO(base64.b64decode(source_image_data, validate=True)))
+        target_image = Image.open(BytesIO(base64.b64decode(target_image_data, validate=True)))
+        
+    except Exception as e:
+        raise ValueError(f"Failed to decode base64 images: {str(e)}. Please ensure images are valid base64 encoded data.")
     
     # Convert to RGB if needed
     if source_image.mode != 'RGB':
@@ -227,14 +242,28 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         
         if not source_image_data or not target_image_data:
             return {
-                'error': 'Missing source_image or target_image in input'
+                'error': 'Missing source_image or target_image in input',
+                'status': 'failed'
+            }
+        
+        # Validate input data types
+        if not isinstance(source_image_data, str) or not isinstance(target_image_data, str):
+            return {
+                'error': 'source_image and target_image must be base64 encoded strings',
+                'status': 'failed'
             }
         
         # Load models (cache these in production)
         models = load_kiss_models()
         
-        # Preprocess images
-        source_image, target_image = preprocess_images(source_image_data, target_image_data)
+        # Preprocess images with error handling
+        try:
+            source_image, target_image = preprocess_images(source_image_data, target_image_data)
+        except ValueError as e:
+            return {
+                'error': str(e),
+                'status': 'failed'
+            }
         
         # Generate video
         video_path = generate_kiss_video(
