@@ -18,11 +18,7 @@ import numpy as np
 from PIL import Image
 import requests
 from io import BytesIO
-
-def download_input():
-    """Download input data for the RunPod job"""
-    job_input = json.loads(os.environ.get('RUNPOD_INPUT', '{}'))
-    return job_input
+import runpod
 
 def load_kiss_models():
     """Load Wan-AI models and Remade-AI LoRA for kiss generation"""
@@ -216,13 +212,16 @@ def upload_to_storage(video_path: str) -> str:
     
     return video_data
 
-def handler(event: Dict[str, Any]) -> Dict[str, Any]:
+def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     """Main RunPod handler function"""
     try:
+        # Extract input from job
+        job_input = job.get('input', {})
+        
         # Parse input
-        source_image_data = event.get('source_image')
-        target_image_data = event.get('target_image')
-        model_name = event.get('model', 'wan_ai')
+        source_image_data = job_input.get('source_image')
+        target_image_data = job_input.get('target_image')
+        model_name = job_input.get('model', 'wan_ai')
         
         if not source_image_data or not target_image_data:
             return {
@@ -241,7 +240,7 @@ def handler(event: Dict[str, Any]) -> Dict[str, Any]:
             source_image, 
             target_image, 
             model_name=model_name,
-            **event.get('parameters', {})
+            **job_input.get('parameters', {})
         )
         
         if not video_path:
@@ -270,17 +269,5 @@ def handler(event: Dict[str, Any]) -> Dict[str, Any]:
         }
 
 if __name__ == "__main__":
-    # Test locally
-    test_input = {
-        'source_image': 'base64_encoded_image_data_here',
-        'target_image': 'base64_encoded_image_data_here',
-        'model': 'wan_ai',
-        'parameters': {
-            'guidance_scale': 6.0,
-            'flow_shift': 5.0,
-            'prompt': 'Two heads, cinematic romantic lighting, k144ing kissing softly'
-        }
-    }
-    
-    result = handler(test_input)
-    print(json.dumps(result, indent=2))
+    # Start the RunPod serverless handler
+    runpod.serverless.start({"handler": handler})

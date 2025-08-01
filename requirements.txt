@@ -34,7 +34,7 @@ requests>=2.31.0
 aiohttp>=3.8.0
 
 # RunPod specific
-runpod>=1.5.0
+runpod>=1.6.0
 
 # Wan-AI specific dependencies
 # Note: These would be installed based on the actual Wan2.1 repository requirements

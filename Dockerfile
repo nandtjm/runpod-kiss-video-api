@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     curl \
     unzip \
+    ffmpeg \
     libgl1-mesa-glx \
     libglib2.0-0 \
     libsm6 \
@@ -23,25 +24,34 @@ RUN apt-get update && apt-get install -y \
 ENV PYTHONPATH=/app
 ENV CUDA_HOME=/usr/local/cuda
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+ENV PYTHONUNBUFFERED=1
 
-# Copy requirements and install Python dependencies
+# Copy requirements first for better Docker caching
 COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install RunPod worker library
+RUN pip install runpod
 
 # Install PyTorch with CUDA support (if not already in base image)
 RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Install additional AI libraries
+RUN pip install diffusers transformers accelerate
+RUN pip install opencv-python-headless pillow numpy
+RUN pip install huggingface-hub
 
 # Copy application code
 COPY . .
 
 # Create directories for models and temporary files
-RUN mkdir -p /app/models /app/temp
+RUN mkdir -p /app/models /app/temp /runpod-volume
 
-# Set permissions
+# Set proper permissions
 RUN chmod +x main.py
 
-# Expose port (if running as web service)
-EXPOSE 8000
-
-# Command to run the application
-CMD ["python", "main.py"]
+# The handler function will be called by RunPod's runtime
+CMD ["python", "-u", "main.py"]
