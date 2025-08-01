@@ -38,9 +38,9 @@ RUN pip install --no-cache-dir -r requirements_minimal.txt
 # Install PyTorch with CUDA support
 RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
-# Install additional dependencies with error handling
-RUN pip install --no-cache-dir xformers || echo "xformers failed, continuing without it"
-RUN pip install --no-cache-dir controlnet-aux==0.0.10 || echo "controlnet-aux failed, continuing without it"
+# Optional dependencies can be added later if needed
+# RUN pip install --no-cache-dir xformers
+# RUN pip install --no-cache-dir controlnet-aux==0.0.10
 
 # Copy application code
 COPY . .
