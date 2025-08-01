@@ -11,7 +11,7 @@ echo "=================================================="
 # Configuration
 IMAGE_NAME="kiss-video-generator"
 TAG="production-preloaded"
-REGISTRY=${DOCKER_REGISTRY:-"your-dockerhub-username"}
+REGISTRY=${DOCKER_REGISTRY:-"nandtjm"}
 FULL_IMAGE_NAME="${REGISTRY}/${IMAGE_NAME}:${TAG}"
 
 echo "📋 Build Configuration:"

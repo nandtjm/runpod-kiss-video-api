@@ -1,5 +1,6 @@
 # Production Dockerfile with Pre-loaded AI Models
 # This builds models into the Docker image at build time instead of downloading at runtime
+# Docker Hub: nandtjm/kiss-video-generator:production-preloaded
 FROM runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
 
 # Set working directory
