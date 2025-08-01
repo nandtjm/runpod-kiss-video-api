@@ -20,14 +20,50 @@ import requests
 from io import BytesIO
 import runpod
 
-def download_model_from_hf(repo_id: str, local_dir: str, timeout: int = 300) -> bool:
-    """Download model from Hugging Face Hub with timeout and progress tracking"""
+def get_disk_space(path: str) -> dict:
+    """Get available disk space in bytes"""
+    import shutil
+    try:
+        total, used, free = shutil.disk_usage(path)
+        return {
+            'total': total,
+            'used': used, 
+            'free': free,
+            'free_gb': free / (1024**3)
+        }
+    except Exception as e:
+        print(f"Error checking disk space: {e}")
+        return {'free': 0, 'free_gb': 0}
+
+def download_model_from_hf(repo_id: str, local_dir: str, timeout: int = 300, min_space_gb: float = 1.0) -> bool:
+    """Download model from Hugging Face Hub with disk space checks"""
     try:
         import time
         from threading import Thread
         import queue
         
+        # Check available disk space
+        disk_info = get_disk_space(os.path.dirname(local_dir))
+        free_gb = disk_info.get('free_gb', 0)
+        
+        print(f"Available disk space: {free_gb:.2f} GB")
+        
+        # Estimate model sizes (approximate)
+        model_sizes = {
+            'Wan-AI/Wan2.1-I2V-14B-720P': 28.0,  # ~28GB
+            'Remade-AI/kissing': 0.4,  # ~400MB
+        }
+        
+        estimated_size = model_sizes.get(repo_id, 1.0)
+        required_space = estimated_size + min_space_gb  # Add buffer
+        
+        if free_gb < required_space:
+            print(f"❌ Insufficient disk space for {repo_id}")
+            print(f"   Required: {required_space:.1f} GB, Available: {free_gb:.2f} GB")
+            return False
+        
         print(f"Downloading {repo_id} to {local_dir}...")
+        print(f"Estimated size: {estimated_size:.1f} GB")
         os.makedirs(local_dir, exist_ok=True)
         
         # Use a queue to communicate between threads
@@ -66,6 +102,9 @@ def download_model_from_hf(repo_id: str, local_dir: str, timeout: int = 300) -> 
                 return True
             else:
                 print(f"❌ Download failed for {repo_id}: {error}")
+                # If disk space error, suggest using larger instance
+                if "No space left" in str(error):
+                    print(f"💡 Suggestion: Use a RunPod instance with more disk space (>{estimated_size + 5:.0f}GB)")
                 return False
         except queue.Empty:
             print(f"❌ Download failed for {repo_id}: No result returned")
@@ -407,10 +446,20 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         # Check if requested model is available
         if model_name not in models or models[model_name] is None:
             available_models = [k for k, v in models.items() if v is not None]
+            
+            # Check disk space to provide helpful error message
+            disk_info = get_disk_space("/workspace")
+            error_msg = f'Model {model_name} not available. Available models: {", ".join(available_models) if available_models else "None"}'
+            
+            if disk_info.get('free_gb', 0) < 30:  # Less than 30GB free
+                error_msg += f'\n💡 Disk space issue: Only {disk_info.get("free_gb", 0):.1f} GB available. '
+                error_msg += 'For Wan-AI model, use a RunPod instance with 50+ GB disk space.'
+            
             return {
-                'error': f'Model {model_name} not available. Available models: {", ".join(available_models) if available_models else "None"}',
+                'error': error_msg,
                 'status': 'failed',
-                'available_models': available_models
+                'available_models': available_models,
+                'disk_space_gb': disk_info.get('free_gb', 0)
             }
 
         # Generate video

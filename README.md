@@ -25,6 +25,8 @@ A serverless API for generating kiss videos using state-of-the-art AI models fro
 - Docker installed
 - RunPod account with API key
 - Docker Hub account (or alternative registry)
+- **RunPod instance with minimum 50GB disk space** (150GB recommended)
+- GPU with 16+ GB VRAM (RTX 4090 recommended)
 
 ### 1. Clone and Setup
 
@@ -285,20 +287,27 @@ Estimated costs on RunPod (RTX 4090):
 
 ### Common Issues
 
-1. **Model Loading Failures**
+1. **Model Loading Failures - "No space left on device"**
+   - **Problem**: RunPod instance has insufficient disk space (Wan-AI model is ~28GB)
+   - **Solution**: Use RunPod instance with 50+ GB disk space (150GB recommended)
+   - **Check disk space**: Response includes `disk_space_gb` field
+   - **Alternative**: Use smaller models or pre-download to volume storage
+
+2. **Model Loading Failures - Network Issues**
    - Check internet connection for model downloads
    - Verify Hugging Face model IDs are correct
-   - Ensure sufficient GPU memory
+   - Models download automatically on first use (may take 5-10 minutes)
 
-2. **Deployment Issues**
+3. **Deployment Issues**
    - Verify Docker is running
    - Check RunPod API key permissions
    - Ensure image registry credentials are set
+   - **Disk Space**: Minimum 150GB recommended in RunPod configuration
 
-3. **Generation Failures**
+4. **Generation Failures**
    - Validate input images are proper format
    - Check generation parameters are within bounds
-   - Monitor GPU memory usage
+   - Monitor GPU memory usage (16+ GB VRAM required)
 
 ### Logs
 

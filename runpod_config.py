@@ -12,7 +12,7 @@ RUNPOD_CONFIG = {
     "gpu_count": 1,
     "gpu_type": "NVIDIA GeForce RTX 4090",
     "memory": 32,  # GB
-    "disk": 100,   # GB (increased for model storage)
+    "disk": 150,   # GB (minimum 150GB for Wan-AI 28GB + LoRA + workspace)
     "ports": "8000/http",
     "env": {
         "MODEL_CACHE_DIR": "/runpod-volume/models",
