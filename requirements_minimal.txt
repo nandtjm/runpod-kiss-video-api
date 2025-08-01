@@ -1,0 +1,28 @@
+# Core dependencies - minimal set for RunPod deployment
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# RunPod specific
+runpod>=1.6.0
+
+# Hugging Face ecosystem - essential only
+transformers>=4.30.0
+diffusers>=0.20.0
+accelerate>=0.20.0
+huggingface_hub>=0.16.0
+safetensors>=0.3.0
+
+# Image and video processing - essential only
+opencv-python-headless>=4.8.0
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# Basic utilities
+requests>=2.31.0
+
+# LoRA support
+peft>=0.4.0
+
+# Optional but commonly needed
+einops>=0.6.0

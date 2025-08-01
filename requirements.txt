@@ -17,37 +17,13 @@ Pillow>=10.0.0
 imageio>=2.31.0
 imageio-ffmpeg>=0.4.8
 
-# Face detection and processing
-face-recognition>=1.3.0
-mediapipe>=0.10.0
-insightface>=0.7.3
-
-# API and web framework
-fastapi>=0.100.0
-uvicorn>=0.23.0
-pydantic>=2.0.0
-
-# Utilities
+# Basic utilities
 numpy>=1.24.0
-scipy>=1.10.0
 requests>=2.31.0
-aiohttp>=3.8.0
 
 # RunPod specific
 runpod>=1.6.0
 
-# Wan-AI specific dependencies
-# Note: These would be installed based on the actual Wan2.1 repository requirements
+# Essential dependencies only
 einops>=0.6.0
-timm>=0.9.0
-omegaconf>=2.3.0
-hydra-core>=1.3.0
-# pytorch-lightning>=2.0.0
-
-# Optional GPU acceleration
-# Install with: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-xformers>=0.0.20  # For memory efficient attention
-
-# Model-specific dependencies for LoRA support
-controlnet-aux>=0.4.0
 peft>=0.4.0  # For LoRA loading and application

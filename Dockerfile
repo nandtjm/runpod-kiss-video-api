@@ -27,22 +27,20 @@ ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 ENV PYTHONUNBUFFERED=1
 
 # Copy requirements first for better Docker caching
-COPY requirements.txt .
+COPY requirements_minimal.txt requirements.txt ./
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Install RunPod worker library
-RUN pip install runpod
+# Install core dependencies first
+RUN pip install --no-cache-dir -r requirements_minimal.txt
 
-# Install PyTorch with CUDA support (if not already in base image)
+# Install PyTorch with CUDA support
 RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
-# Install additional AI libraries
-RUN pip install diffusers transformers accelerate
-RUN pip install opencv-python-headless pillow numpy
-RUN pip install huggingface-hub
+# Install additional dependencies with error handling
+RUN pip install --no-cache-dir xformers || echo "xformers failed, continuing without it"
+RUN pip install --no-cache-dir controlnet-aux==0.0.10 || echo "controlnet-aux failed, continuing without it"
 
 # Copy application code
 COPY . .
