@@ -28,12 +28,14 @@ def load_kiss_models():
     try:
         # Load Wan-AI I2V 14B model (base model for kissing LoRA)
         print("Loading Wan-AI I2V 14B model...")
-        wan_model_path = "/app/models/Wan2.1-I2V-14B-720P"
+        # Use volume storage for models
+        model_cache_dir = os.getenv("MODEL_CACHE_DIR", "/workspace/models")
+        wan_model_path = f"{model_cache_dir}/Wan2.1-I2V-14B-720P"
         
         # Check if model exists, if not download it
         if not os.path.exists(wan_model_path):
             print("Downloading Wan-AI I2V model...")
-            os.makedirs("/app/models", exist_ok=True)
+            os.makedirs(model_cache_dir, exist_ok=True)
             subprocess.run([
                 "huggingface-cli", "download", 
                 "Wan-AI/Wan2.1-I2V-14B-720P",
@@ -54,7 +56,7 @@ def load_kiss_models():
     try:
         # Load Remade-AI kissing LoRA
         print("Loading Remade-AI kissing LoRA...")
-        lora_path = "/app/models/kissing-lora"
+        lora_path = f"{model_cache_dir}/kissing-lora"
         
         # Download LoRA if not exists
         if not os.path.exists(lora_path):
