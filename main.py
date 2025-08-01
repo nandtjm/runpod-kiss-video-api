@@ -100,8 +100,25 @@ def preprocess_images(source_image_data: str, target_image_data: str) -> tuple:
             # Check if it's a URL
             if image_data.startswith(('http://', 'https://')):
                 print(f"Loading image from URL: {image_data[:50]}...")
-                response = requests.get(image_data, timeout=30)
+                
+                # Add proper headers to avoid blocking
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'DNT': '1',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                }
+                
+                response = requests.get(image_data, headers=headers, timeout=30)
                 response.raise_for_status()
+                
+                # Check if it's actually HTML instead of image
+                if response.content.startswith(b'<!DOCTYPE') or response.content.startswith(b'<html'):
+                    raise ValueError(f"URL returned HTML page instead of image")
+                
                 return Image.open(BytesIO(response.content))
             
             # Handle base64 data
