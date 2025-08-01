@@ -268,28 +268,5 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             'status': 'failed'
         }
 
-if __name__ == "__main__":
-    try:
-        print("=== RunPod Container Startup ===")
-        print("Python version:", sys.version)
-        print("Checking imports...")
-        
-        # Test imports
-        import torch
-        print("✅ PyTorch available:", torch.__version__)
-        print("✅ CUDA available:", torch.cuda.is_available())
-        
-        import runpod
-        print("✅ RunPod available:", runpod.__version__ if hasattr(runpod, '__version__') else "imported")
-        
-        print("✅ Handler function available:", callable(handler))
-        print("Starting RunPod serverless handler...")
-        
-        # Start the RunPod serverless handler
-        runpod.serverless.start({"handler": handler})
-        
-    except Exception as e:
-        print(f"CRITICAL ERROR starting RunPod handler: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
+# This file is imported by rp_handler.py
+# The handler function is defined above and exported for use

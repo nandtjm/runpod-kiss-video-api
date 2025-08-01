@@ -49,7 +49,7 @@ COPY . .
 RUN mkdir -p /app/models /app/temp /runpod-volume
 
 # Set proper permissions
-RUN chmod +x main.py
+RUN chmod +x main.py rp_handler.py
 
-# The handler function will be called by RunPod's runtime
-CMD ["python", "-u", "main.py"]
+# RunPod serverless entry point
+CMD ["python3", "-u", "rp_handler.py"]
