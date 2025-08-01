@@ -49,7 +49,7 @@ COPY . .
 RUN mkdir -p /app/models /app/temp /runpod-volume
 
 # Set proper permissions
-RUN chmod +x main.py rp_handler.py
+RUN chmod +x main.py rp_handler.py test_handler.py
 
-# RunPod serverless entry point
-CMD ["python3", "-u", "rp_handler.py"]
+# Test entry point to isolate issues
+CMD ["python3", "-u", "test_handler.py"]
