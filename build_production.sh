@@ -32,14 +32,26 @@ echo "🔨 Building Docker image (this may take 20-30 minutes due to model downl
 echo "⚠️  Large models (28GB+ Wan-AI) will be downloaded during build"
 echo ""
 
+# Clean up any corrupted images first
+echo "🧹 Cleaning up Docker cache and corrupted images..."
+docker system prune -f
+docker builder prune -f
+
+# Pull fresh base image with correct platform
+echo "📥 Pulling fresh base image for AMD64 platform..."
+docker pull --platform=linux/amd64 runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
+
 # Use BuildKit for better build performance
 export DOCKER_BUILDKIT=1
 
-# Build with production Dockerfile
+# Build with production Dockerfile for AMD64 platform
+echo "🔨 Building for AMD64 platform (RunPod compatibility)..."
 docker build \
+    --platform=linux/amd64 \
     -f Dockerfile.production \
     -t "${FULL_IMAGE_NAME}" \
     --progress=plain \
+    --no-cache \
     .
 
 if [ $? -eq 0 ]; then
