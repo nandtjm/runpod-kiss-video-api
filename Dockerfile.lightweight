@@ -1,0 +1,70 @@
+# Lightweight Volume-Based Dockerfile
+# Uses smaller base image to avoid download timeouts
+
+FROM --platform=linux/amd64 python:3.10-slim
+
+WORKDIR /app
+
+# Install system dependencies (minimal)
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    git \
+    ffmpeg \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set environment variables for volume-based models
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV MODEL_CACHE_DIR=/workspace/models
+ENV TEMP_DIR=/tmp
+ENV HUGGINGFACE_HUB_CACHE=/workspace/models/.cache
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Install PyTorch separately (lighter approach)
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Install additional dependencies
+RUN pip install huggingface_hub transformers runpod
+
+# Copy application code
+COPY . .
+
+# Create model validation script
+RUN echo '#!/bin/bash\n\
+echo "🔍 Validating Pre-loaded Models on Volume..."\n\
+echo "Volume mount point: $MODEL_CACHE_DIR"\n\
+\n\
+if [ ! -d "$MODEL_CACHE_DIR" ]; then\n\
+    echo "❌ ERROR: Network volume not mounted at $MODEL_CACHE_DIR"\n\
+    exit 1\n\
+fi\n\
+\n\
+WAN_MODEL_PATH="$MODEL_CACHE_DIR/Wan2.1-I2V-14B-720P"\n\
+if [ -d "$WAN_MODEL_PATH" ] && [ "$(ls -A $WAN_MODEL_PATH)" ]; then\n\
+    MODEL_SIZE=$(du -sh "$WAN_MODEL_PATH" | cut -f1)\n\
+    echo "✅ Wan-AI model found: $MODEL_SIZE"\n\
+else\n\
+    echo "❌ Wan-AI model NOT found at $WAN_MODEL_PATH"\n\
+    exit 1\n\
+fi\n\
+\n\
+echo "✅ Model validation complete - starting API server"\n\
+python3 main_volume.py\n\
+' > /app/start_with_volume.sh && chmod +x /app/start_with_volume.sh
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
+
+# Start with model validation
+CMD ["/app/start_with_volume.sh"]
