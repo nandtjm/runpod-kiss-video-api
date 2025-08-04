@@ -1,0 +1,71 @@
+# Optimized Dockerfile with Pre-downloaded Models (COPY Strategy)
+# Models are downloaded locally first, then copied into image
+# This avoids repeated 28GB downloads during build
+
+FROM --platform=linux/amd64 runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    wget \
+    curl \
+    unzip \
+    ffmpeg \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libgoogle-perftools4 \
+    libtcmalloc-minimal4 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV CUDA_HOME=/usr/local/cuda
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+ENV PYTHONUNBUFFERED=1
+ENV MODEL_CACHE_DIR=/app/models
+ENV TEMP_DIR=/app/temp
+ENV HUGGINGFACE_HUB_CACHE=/app/models/.cache
+
+# Create directories
+RUN mkdir -p /app/models /app/temp
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Install PyTorch with CUDA support
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Copy application code (excluding models directory)
+COPY --exclude=models . .
+
+# COPY pre-downloaded models (this is the key optimization!)
+# Models should be downloaded locally first using download_models_direct.py
+COPY models/ /app/models/
+
+# Verify models are present
+RUN echo "Verifying models..." && \
+    ls -la /app/models/ && \
+    echo "Wan-AI model files:" && \
+    find /app/models/Wan2.1-I2V-14B-720P -type f | head -10 && \
+    echo "Model verification complete"
+
+# Set proper permissions
+RUN chmod -R 755 /app/models
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
+
+# Start the API directly (models already included)
+CMD ["python3", "rp_handler.py"]
