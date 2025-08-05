@@ -48,12 +48,7 @@ RUN pip install huggingface_hub transformers
 COPY . .
 
 # Create startup script that uses volume models
-RUN echo '#!/bin/bash\n\
-echo "🚀 Starting Kiss Video Generator API"\n\
-echo "📦 Using pre-loaded models from volume"\n\
-echo "⚡ API starting on port 8000"\n\
-python3 main_volume.py\n\
-' > /app/start.sh && chmod +x /app/start.sh
+RUN echo -e '#!/bin/bash\necho "🚀 Starting Kiss Video Generator API"\necho "📦 Using pre-loaded models from volume"\necho "⚡ API starting on port 8000"\npython3 main_volume.py' > /app/start.sh && chmod +x /app/start.sh
 
 # Expose port
 EXPOSE 8000
