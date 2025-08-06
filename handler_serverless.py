@@ -434,4 +434,5 @@ def handler(job):
 
 # RunPod serverless integration
 if __name__ == "__main__":
+    print("🚀 Starting AI Kiss Video Generator - Network Volume Mode")
     runpod.serverless.start({"handler": handler})
