@@ -1,0 +1,45 @@
+# Latest CUDA 12.8+ & PyTorch 2.8+ Compatible Requirements
+# Updated for cutting-edge RunPod infrastructure
+
+# RunPod serverless (latest version)
+runpod>=1.7.0,<2.0.0
+
+# PyTorch 2.8+ with CUDA 12.8+ support 
+# (installed separately via cu124 index in Dockerfile)
+# torch>=2.8.0
+# torchvision>=0.21.0  
+# torchaudio>=2.8.0
+
+# Hugging Face ecosystem (latest versions)
+huggingface_hub>=0.25.0
+transformers>=4.45.0
+accelerate>=1.0.0
+
+# Image/Video processing (latest stable versions)
+opencv-python-headless>=4.10.0,<5.0.0
+Pillow>=10.4.0,<12.0.0
+numpy>=1.26.0,<3.0.0
+
+# Video processing
+imageio>=2.35.0
+imageio-ffmpeg>=0.5.1
+moviepy>=1.0.3
+
+# Basic utilities (latest)
+requests>=2.32.0,<3.0.0
+tqdm>=4.66.0
+
+# Scientific computing (updated)
+scipy>=1.14.0
+scikit-image>=0.24.0
+
+# Debugging and monitoring
+psutil>=6.0.0
+gputil>=1.4.0
+
+# Additional AI/ML utilities
+diffusers>=0.31.0
+safetensors>=0.4.0
+
+# Performance optimizations
+ninja>=1.11.0

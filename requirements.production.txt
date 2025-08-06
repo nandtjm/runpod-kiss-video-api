@@ -1,0 +1,59 @@
+# Production Requirements - AI Kiss Video Generator
+# Optimized for RunPod Pod builds with GPU acceleration
+
+# Core RunPod requirements
+runpod>=1.6.0,<2.0.0
+
+# PyTorch ecosystem (use pre-installed from base image)
+# torch>=2.1.0 - Already in base image
+# torchvision>=0.16.0 - Already in base image
+# torchaudio>=2.1.0 - Already in base image
+
+# AI Model framework
+diffusers>=0.24.0,<1.0.0
+transformers>=4.35.0,<5.0.0
+accelerate>=0.24.0,<1.0.0
+
+# Hugging Face ecosystem
+huggingface-hub>=0.27.0,<1.0.0
+safetensors>=0.4.0,<1.0.0
+
+# Computer Vision
+opencv-python-headless>=4.8.0,<5.0.0
+Pillow>=10.0.0,<11.0.0
+imageio>=2.31.0,<3.0.0
+scikit-image>=0.21.0,<1.0.0
+
+# Numerical computing
+numpy>=1.24.0,<2.0.0
+scipy>=1.11.0,<2.0.0
+
+# Video processing
+imageio-ffmpeg>=0.4.9,<1.0.0
+moviepy>=1.0.3,<2.0.0
+
+# Face detection and processing
+face-recognition>=1.3.0,<2.0.0
+dlib>=19.24.0,<20.0.0
+mediapipe>=0.10.0,<1.0.0
+
+# Advanced AI models
+controlnet-aux>=0.4.0,<1.0.0
+insightface>=0.7.3,<1.0.0
+
+# Performance optimization
+xformers>=0.0.20,<1.0.0  # Memory-efficient attention
+triton>=2.1.0,<3.0.0     # GPU kernel optimization
+
+# Utilities
+requests>=2.31.0,<3.0.0
+tqdm>=4.65.0,<5.0.0
+psutil>=5.9.0,<6.0.0
+
+# Logging and monitoring
+loguru>=0.7.0,<1.0.0
+rich>=13.0.0,<14.0.0
+
+# Optional: Model serving (for debugging)
+fastapi>=0.100.0,<1.0.0
+uvicorn>=0.23.0,<1.0.0

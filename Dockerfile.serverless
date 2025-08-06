@@ -1,0 +1,55 @@
+# Serverless AI Kiss Video Generator - Network Volume Optimized
+# Uses pre-existing models from RunPod network volume - No model downloads!
+
+FROM runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
+
+LABEL maintainer="AI Kiss Video Generator"
+LABEL version="2.0.0-serverless"
+LABEL description="Serverless AI kiss video generation using network volume models"
+
+# Set working directory
+WORKDIR /app
+
+# Environment configuration for network volume
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV MODEL_CACHE_DIR=/runpod-volume/models
+ENV TEMP_DIR=/tmp
+ENV CUDA_LAUNCH_BLOCKING=0
+ENV TORCH_BACKENDS_CUDNN_BENCHMARK=1
+ENV HF_HOME=/runpod-volume/models/.cache
+
+# Install only system dependencies (no model downloads!)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Copy requirements first for better caching
+COPY requirements.serverless.txt ./requirements.txt
+
+# Install Python dependencies only (no model downloads!)
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip cache purge
+
+# Copy application code
+COPY handler.serverless.py ./handler.py
+COPY runpod_serverless.py ./
+
+# Create temporary directories
+RUN mkdir -p /tmp/ai_generation /tmp/video_output && \
+    chmod 777 /tmp/ai_generation /tmp/video_output
+
+# Health check that validates network volume models
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
+    CMD python3 -c "import os; exit(0 if os.path.exists('/runpod-volume/models/Wan2.1-I2V-14B-720P') else 1)" || exit 1
+
+# Serverless entry point
+CMD ["python3", "-u", "runpod_serverless.py"]

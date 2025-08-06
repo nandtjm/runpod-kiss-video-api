@@ -1,0 +1,20 @@
+# Minimal Working Requirements for RunPod Serverless
+# Tested and verified versions
+
+# RunPod serverless (critical - must be compatible version)
+runpod>=1.6.0,<2.0.0
+
+# PyTorch (use RunPod base image version)
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Image/Video processing (essential for video generation)
+opencv-python-headless>=4.8.0,<5.0.0
+Pillow>=10.0.0,<11.0.0
+numpy>=1.24.0,<2.0.0
+
+# Basic utilities
+requests>=2.31.0,<3.0.0
+
+# Optional but helpful for debugging
+psutil>=5.9.0

@@ -1,0 +1,25 @@
+# CUDA 12.x Compatible Requirements for RunPod Serverless
+# Updated for latest RunPod infrastructure
+
+# RunPod serverless (latest compatible version)
+runpod>=1.6.0,<2.0.0
+
+# PyTorch with CUDA 12.1 support (will be installed separately with correct index)
+# torch>=2.1.0 (installed via pip with cu121 index)
+# torchvision>=0.16.0 
+# torchaudio>=2.1.0
+
+# Image/Video processing (essential for video generation)
+opencv-python-headless>=4.8.0,<5.0.0
+Pillow>=10.0.0,<11.0.0
+numpy>=1.24.0,<2.0.0
+
+# Basic utilities
+requests>=2.31.0,<3.0.0
+
+# Optional but helpful for debugging
+psutil>=5.9.0
+
+# Additional dependencies that might be needed
+imageio>=2.31.0
+imageio-ffmpeg>=0.4.8

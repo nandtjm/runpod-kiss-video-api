@@ -58,3 +58,4 @@ RUN chmod +x test_handler.py || true
 
 # Production RunPod serverless handler
 CMD ["python3", "-u", "rp_handler.py"]
+

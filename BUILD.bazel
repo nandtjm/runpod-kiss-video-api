@@ -1,0 +1,196 @@
+# Bazel BUILD file for AI Kiss Video Generator
+# Optimized for RunPod Pod builds with superior bandwidth
+
+load("@rules_docker//container:container.bzl", "container_image", "container_push")
+load("@rules_docker//python:image.bzl", "py_image")
+
+# Production Docker image build
+container_image(
+    name = "ai_kiss_video_production",
+    base = "@runpod_pytorch_base//image",
+    
+    # Copy application files
+    files = [
+        "handler.production.py",
+        "runpod_serverless.py", 
+        "requirements.production.txt",
+        "start_production.sh",
+    ],
+    
+    # Set working directory
+    workdir = "/app",
+    
+    # Environment variables
+    env = {
+        "PYTHONPATH": "/app",
+        "PYTHONUNBUFFERED": "1", 
+        "MODEL_CACHE_DIR": "/runpod-volume/models",
+        "TEMP_DIR": "/tmp",
+        "CUDA_LAUNCH_BLOCKING": "0",
+        "TORCH_BACKENDS_CUDNN_BENCHMARK": "1",
+    },
+    
+    # Runtime command
+    cmd = ["/app/start.sh"],
+    
+    # Labels for better organization
+    labels = {
+        "maintainer": "AI Kiss Video Generator",
+        "version": "1.0.0-production", 
+        "description": "Production AI kiss video generation with Wan-AI models",
+        "build_tool": "bazel",
+        "build_location": "runpod_pod"
+    }
+)
+
+# Push to Docker Hub - Production
+container_push(
+    name = "push_production",
+    image = ":ai_kiss_video_production",
+    format = "Docker",
+    registry = "docker.io",
+    repository = "nandtjm/kiss-video-generator",
+    tag = "production",
+)
+
+# Fast development build (lighter dependencies)
+container_image(
+    name = "ai_kiss_video_dev",
+    base = "@runpod_pytorch_base//image",
+    
+    files = [
+        "handler.py",  # Use existing handler
+        "runpod_serverless.py",
+        "requirements_fast.txt",
+        "start_script.sh",
+    ],
+    
+    workdir = "/app",
+    
+    env = {
+        "PYTHONPATH": "/app",
+        "PYTHONUNBUFFERED": "1",
+        "MODEL_CACHE_DIR": "/runpod-volume/models", 
+        "TEMP_DIR": "/tmp",
+    },
+    
+    cmd = ["/app/start.sh"],
+    
+    labels = {
+        "maintainer": "AI Kiss Video Generator",
+        "version": "1.0.0-dev",
+        "description": "Development AI kiss video generation",
+        "build_tool": "bazel"
+    }
+)
+
+# Push to Docker Hub - Development  
+container_push(
+    name = "push_dev",
+    image = ":ai_kiss_video_dev",
+    format = "Docker", 
+    registry = "docker.io",
+    repository = "nandtjm/kiss-video-generator",
+    tag = "dev",
+)
+
+# Multi-architecture build for both AMD64 and ARM64
+container_image(
+    name = "ai_kiss_video_multi_arch",
+    base = "@runpod_pytorch_base//image",
+    
+    files = [
+        "handler.production.py",
+        "runpod_serverless.py",
+        "requirements.production.txt", 
+        "start_production.sh",
+    ],
+    
+    workdir = "/app",
+    
+    env = {
+        "PYTHONPATH": "/app",
+        "PYTHONUNBUFFERED": "1",
+        "MODEL_CACHE_DIR": "/runpod-volume/models",
+        "TEMP_DIR": "/tmp",
+        "CUDA_LAUNCH_BLOCKING": "0",
+        "TORCH_BACKENDS_CUDNN_BENCHMARK": "1",
+    },
+    
+    cmd = ["/app/start.sh"],
+    
+    architecture = select({
+        "@platforms//cpu:x86_64": "amd64",
+        "@platforms//cpu:aarch64": "arm64", 
+        "//conditions:default": "amd64",
+    }),
+)
+
+# Push multi-arch to Docker Hub
+container_push(
+    name = "push_multi_arch",
+    image = ":ai_kiss_video_multi_arch", 
+    format = "Docker",
+    registry = "docker.io",
+    repository = "nandtjm/kiss-video-generator",
+    tag = "latest",
+)
+
+# Test build (minimal for CI/CD)
+container_image(
+    name = "ai_kiss_video_test",
+    base = "@runpod_pytorch_base//image",
+    
+    files = [
+        "test_ai_generation.py",
+        "requirements_fast.txt",
+    ],
+    
+    workdir = "/app",
+    
+    cmd = ["python3", "test_ai_generation.py"],
+)
+
+# Specialized builds for different GPU architectures
+container_image(
+    name = "ai_kiss_video_rtx_5090",
+    base = "@runpod_pytorch_base//image",
+    
+    files = [
+        "handler.production.py",
+        "runpod_serverless.py",
+        "requirements.production.txt",
+        "start_production.sh", 
+    ],
+    
+    workdir = "/app",
+    
+    env = {
+        "PYTHONPATH": "/app",
+        "PYTHONUNBUFFERED": "1",
+        "MODEL_CACHE_DIR": "/runpod-volume/models",
+        "TEMP_DIR": "/tmp", 
+        "CUDA_LAUNCH_BLOCKING": "0",
+        "TORCH_BACKENDS_CUDNN_BENCHMARK": "1",
+        "CUDA_ARCH": "sm_90",  # RTX 5090 specific
+        "TORCH_CUDA_ARCH_LIST": "9.0",
+    },
+    
+    cmd = ["/app/start.sh"],
+    
+    labels = {
+        "gpu_arch": "rtx_5090",
+        "cuda_arch": "sm_90", 
+        "optimized_for": "ada_lovelace_architecture"
+    }
+)
+
+# Push RTX 5090 optimized build
+container_push(
+    name = "push_rtx_5090",
+    image = ":ai_kiss_video_rtx_5090",
+    format = "Docker",
+    registry = "docker.io", 
+    repository = "nandtjm/kiss-video-generator",
+    tag = "rtx5090",
+)

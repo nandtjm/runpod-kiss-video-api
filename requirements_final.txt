@@ -1,0 +1,31 @@
+# Final Production Requirements - Network Volume Strategy
+# Lightweight dependencies for RunPod serverless deployment
+
+# Core dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# Hugging Face ecosystem
+huggingface_hub>=0.19.0
+transformers>=4.35.0
+
+# Image processing
+Pillow>=10.0.0
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+
+# Video processing
+imageio>=2.31.0
+imageio-ffmpeg>=0.4.8
+
+# RunPod serverless
+runpod>=1.6.0
+
+# Utilities
+requests>=2.31.0
+tqdm>=4.66.0
+
+# Optional but recommended for production
+psutil>=5.9.0
+urllib3>=2.0.0

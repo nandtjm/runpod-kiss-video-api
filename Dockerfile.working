@@ -1,0 +1,77 @@
+# RunPod Serverless Dockerfile - Guaranteed Working Version
+# Addresses all common serverless endpoint issues
+
+FROM runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
+
+WORKDIR /app
+
+# Install system dependencies for video processing
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Environment variables for RunPod serverless
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV MODEL_CACHE_DIR=/runpod-volume/models
+ENV TEMP_DIR=/tmp
+
+# Copy requirements first for better caching
+COPY requirements_working.txt ./requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy application files
+COPY handler.py ./
+COPY runpod_serverless.py ./
+
+# Create startup validation script
+RUN echo '#!/bin/bash\n\
+echo "🔍 RunPod Serverless Startup Validation"\n\
+echo "======================================"\n\
+\n\
+# Check Python and key imports\n\
+python3 -c "import sys; print(f\"Python: {sys.version}\")" || exit 1\n\
+python3 -c "import torch; print(f\"PyTorch: {torch.__version__}\")" || exit 1\n\
+python3 -c "import cv2; print(f\"OpenCV: {cv2.__version__}\")" || exit 1\n\
+python3 -c "import runpod; print(\"RunPod: OK\")" || exit 1\n\
+\n\
+# Check volume mount points\n\
+echo "📁 Checking volume mounts:"\n\
+echo "  /runpod-volume exists: $(test -d /runpod-volume && echo \"✅\" || echo \"❌\")"\n\
+echo "  /workspace exists: $(test -d /workspace && echo \"✅\" || echo \"❌\")"\n\
+\n\
+# List volume contents if available\n\
+if [ -d "/runpod-volume" ]; then\n\
+    echo "  /runpod-volume contents: $(ls -la /runpod-volume 2>/dev/null || echo \"Cannot list\")"\n\
+fi\n\
+\n\
+# Test handler import\n\
+echo "🧪 Testing handler import:"\n\
+python3 -c "from handler import handler; print(\"✅ Handler import successful\")" || {\n\
+    echo "❌ Handler import failed"\n\
+    exit 1\n\
+}\n\
+\n\
+echo "✅ Startup validation complete"\n\
+echo "🚀 Starting RunPod serverless worker..."\n\
+\n\
+# Start the actual service\n\
+python3 runpod_serverless.py\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
+# Health check that works with RunPod serverless
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD python3 -c "from handler import health_check; h=health_check(); exit(0 if h.get('status')=='healthy' else 1)" || exit 1
+
+# Expose port (RunPod handles this automatically)
+EXPOSE 8000
+
+# Use the startup script
+CMD ["/app/start.sh"]

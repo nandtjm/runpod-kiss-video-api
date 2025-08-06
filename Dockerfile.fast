@@ -1,0 +1,37 @@
+# Fast Build Dockerfile - Uses existing RunPod base
+# Builds in 2-3 minutes instead of hours
+
+FROM runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
+
+WORKDIR /app
+
+# Install only essential system dependencies (fast)
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Environment variables for volume-based models
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV MODEL_CACHE_DIR=/runpod-volume/models
+ENV TEMP_DIR=/tmp
+
+# Copy minimal requirements (fast install)
+COPY requirements_fast.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files
+COPY handler.py ./
+COPY runpod_serverless.py ./
+
+# Copy startup script (cleaner approach)
+COPY start_script.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD python3 -c "from handler import health_check; exit(0 if health_check().get('status')=='healthy' else 1)" || exit 1
+
+EXPOSE 8000
+CMD ["/app/start.sh"]

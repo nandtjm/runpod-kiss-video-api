@@ -1,0 +1,18 @@
+# Fast Requirements - AI Models + Essentials
+# Builds fast using cached PyTorch from base image
+
+# Core RunPod requirements
+runpod>=1.6.0,<2.0.0
+
+# Basic image/video processing
+opencv-python-headless>=4.8.0,<5.0.0
+Pillow>=10.0.0,<11.0.0
+numpy>=1.24.0,<2.0.0
+
+# AI Model requirements (using cached PyTorch from base image)
+diffusers>=0.24.0,<1.0.0
+transformers>=4.35.0,<5.0.0
+accelerate>=0.24.0,<1.0.0
+
+# Essential utilities
+requests>=2.31.0,<3.0.0
