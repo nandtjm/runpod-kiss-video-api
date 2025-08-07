@@ -480,6 +480,75 @@ def explore_volume_structure() -> Dict[str, Any]:
             "error": str(e)
         }
 
+def debug_model_structure() -> Dict[str, Any]:
+    """Debug function to examine actual model directory structure"""
+    try:
+        model_info = {
+            "wan_model_path": WAN_MODEL_PATH,
+            "wan_model_exists": os.path.exists(WAN_MODEL_PATH),
+            "wan_model_files": [],
+            "lora_model_path": LORA_MODEL_PATH,
+            "lora_model_exists": os.path.exists(LORA_MODEL_PATH),
+            "lora_model_files": [],
+            "recommendations": []
+        }
+        
+        # Examine Wan-AI model directory
+        if model_info["wan_model_exists"]:
+            try:
+                wan_files = os.listdir(WAN_MODEL_PATH)
+                model_info["wan_model_files"] = wan_files[:20]  # First 20 files
+                
+                # Check for different model formats
+                has_model_index = "model_index.json" in wan_files
+                has_config = any(f.startswith("config") and f.endswith(".json") for f in wan_files)
+                has_safetensors = any(f.endswith(".safetensors") for f in wan_files)
+                has_bin = any(f.endswith(".bin") for f in wan_files)
+                has_pth = any(f.endswith(".pth") for f in wan_files)
+                has_ckpt = any(f.endswith(".ckpt") for f in wan_files)
+                
+                model_info["model_format"] = {
+                    "diffusers_format": has_model_index,
+                    "has_config_json": has_config,
+                    "has_safetensors": has_safetensors,
+                    "has_bin_files": has_bin,
+                    "has_pth_files": has_pth,
+                    "has_checkpoint_files": has_ckpt
+                }
+                
+                # Provide recommendations based on found files
+                if has_model_index:
+                    model_info["recommendations"].append("✅ Standard Diffusers format - use DiffusionPipeline.from_pretrained()")
+                elif has_ckpt:
+                    model_info["recommendations"].append("⚠️ Checkpoint format detected - use from_single_file() method")
+                elif has_safetensors or has_bin:
+                    model_info["recommendations"].append("⚠️ Custom format - may need specific loading method")
+                else:
+                    model_info["recommendations"].append("❌ Unknown format - manual investigation required")
+                    
+            except Exception as e:
+                model_info["wan_error"] = str(e)
+        
+        # Examine LoRA model directory  
+        if model_info["lora_model_exists"]:
+            try:
+                lora_files = os.listdir(LORA_MODEL_PATH)
+                model_info["lora_model_files"] = lora_files[:10]  # First 10 files
+            except Exception as e:
+                model_info["lora_error"] = str(e)
+        
+        return {
+            "status": "model_debug_complete",
+            "message": "Model structure analysis complete",
+            "model_info": model_info
+        }
+        
+    except Exception as e:
+        return {
+            "status": "model_debug_error",
+            "error": str(e)
+        }
+
 def check_gpu_compatibility() -> Dict[str, Any]:
     """Debug function to check GPU compatibility with PyTorch"""
     try:
@@ -576,6 +645,10 @@ def handler(job):
         # GPU compatibility check
         if job_input.get('debug') == 'check_gpu':
             return check_gpu_compatibility()
+        
+        # Debug model structure
+        if job_input.get('debug') == 'check_models':
+            return debug_model_structure()
         
         # Video generation
         source_image_url = job_input.get('source_image_url')
