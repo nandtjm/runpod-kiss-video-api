@@ -11,7 +11,7 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV CUDA_VISIBLE_DEVICES=0
 ENV TORCH_CUDA_ARCH_LIST="8.9,9.0"
-ENV MODEL_CACHE_DIR=/runpod-volume/models
+ENV MODEL_CACHE_DIR=/runpod-volume/Models
 
 # GPU memory optimization
 ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
@@ -19,10 +19,10 @@ ENV CUDA_LAUNCH_BLOCKING=0
 ENV TORCH_BACKENDS_CUDNN_BENCHMARK=1
 
 # Cache directories (use network volume)
-ENV HF_HOME=/runpod-volume/models/.cache
-ENV TRANSFORMERS_CACHE=/runpod-volume/models/.cache/transformers
-ENV DIFFUSERS_CACHE=/runpod-volume/models/.cache/diffusers
-ENV TORCH_HOME=/runpod-volume/models/.cache/torch
+ENV HF_HOME=/runpod-volume/Models/.cache
+ENV TRANSFORMERS_CACHE=/runpod-volume/Models/.cache/transformers
+ENV DIFFUSERS_CACHE=/runpod-volume/Models/.cache/diffusers
+ENV TORCH_HOME=/runpod-volume/Models/.cache/torch
 
 # System dependencies
 RUN apt-get update && apt-get install -y \
