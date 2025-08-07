@@ -588,10 +588,17 @@ def handler(job):
             # Use URLs (preferred)
             pass
         elif source_image and target_image:
-            # Legacy base64 support
-            logger.info("⚠️ Using legacy base64 input (deprecated)")
-            source_image_url = f"data:image/jpeg;base64,{source_image}"
-            target_image_url = f"data:image/jpeg;base64,{target_image}"
+            # Check if it's actually base64 data or a URL mistakenly passed as source_image
+            if source_image.startswith(('http://', 'https://', 'data:')):
+                # It's actually a URL, use directly
+                logger.info("🔄 Detected URL in legacy source_image field")
+                source_image_url = source_image
+                target_image_url = target_image
+            else:
+                # Legacy base64 support
+                logger.info("⚠️ Using legacy base64 input (deprecated)")
+                source_image_url = f"data:image/jpeg;base64,{source_image}"
+                target_image_url = f"data:image/jpeg;base64,{target_image}"
         else:
             return {
                 "status": "error",
