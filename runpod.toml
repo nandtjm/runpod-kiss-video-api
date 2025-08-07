@@ -1,0 +1,15 @@
+# RunPod Configuration - Force Source Code Deployment
+[build]
+python_version = "3.10"
+cuda_version = "11.8"
+
+[build.commands]
+- "pip install -r requirements.serverless.txt"
+
+[runtime]
+handler = "handler.serverless.handler"
+python_path = "."
+
+[runtime.env]
+PYTHONPATH = "."
+PYTHONUNBUFFERED = "1"
