@@ -244,12 +244,49 @@ def generate_kiss_video_frames(source_img: Image.Image, target_img: Image.Image,
     logger.info(f"✅ Generated {len(frames)} frames")
     return frames
 
-def create_video_from_frames(frames: list, fps: int = 24) -> str:
-    """Create MP4 video and return base64"""
+def upload_to_temp_storage(file_path: str, filename: str) -> str:
+    """Upload file to temporary hosting service and return URL"""
+    try:
+        # Use a free temporary file hosting service like file.io
+        logger.info(f"📤 Uploading {filename} to temporary storage...")
+        
+        with open(file_path, 'rb') as f:
+            files = {'file': (filename, f, 'video/mp4')}
+            response = requests.post('https://file.io', files=files)
+            
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('success'):
+                upload_url = result['link']
+                logger.info(f"✅ Upload successful: {upload_url}")
+                return upload_url
+            else:
+                raise Exception(f"Upload failed: {result}")
+        else:
+            raise Exception(f"HTTP {response.status_code}: {response.text}")
+            
+    except Exception as e:
+        logger.error(f"❌ Upload to temp storage failed: {e}")
+        raise
+
+def create_video_from_frames(frames: list, fps: int = 24, return_url: bool = False) -> str:
+    """Create MP4 video and return base64 or URL"""
     if not frames:
         raise ValueError("No frames to create video")
     
-    output_path = tempfile.mktemp(suffix='.mp4')
+    # Create unique filename with timestamp
+    import uuid
+    video_id = str(uuid.uuid4())[:8]
+    timestamp = int(time.time())
+    filename = f"kiss_video_{timestamp}_{video_id}.mp4"
+    
+    if return_url:
+        # Save to persistent location for URL access
+        output_path = f"/tmp/{filename}"
+    else:
+        # Use temporary file for base64
+        output_path = tempfile.mktemp(suffix='.mp4')
+    
     height, width = frames[0].shape[:2]
     
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -261,12 +298,38 @@ def create_video_from_frames(frames: list, fps: int = 24) -> str:
     
     video_writer.release()
     
-    # Convert to base64
-    with open(output_path, 'rb') as f:
-        video_data = base64.b64encode(f.read()).decode('utf-8')
-    
-    os.remove(output_path)
-    return video_data
+    if return_url:
+        # Return temporary URL (Note: This is a simplified approach)
+        # In production, you'd upload to S3/CloudFlare/etc
+        file_size = os.path.getsize(output_path)
+        logger.info(f"📹 Video saved: {output_path} ({file_size} bytes)")
+        
+        # Upload to temporary file hosting service
+        try:
+            upload_url = upload_to_temp_storage(output_path, filename)
+            os.remove(output_path)  # Clean up local file
+            
+            return {
+                "video_url": upload_url,
+                "filename": filename,
+                "file_size": file_size,
+                "expires_in": "7 days",
+                "note": "Video uploaded to temporary hosting - URL valid for 7 days"
+            }
+        except Exception as upload_error:
+            logger.warning(f"⚠️ Upload failed: {upload_error}, returning base64")
+            # Fallback to base64 if upload fails
+            with open(output_path, 'rb') as f:
+                video_data = base64.b64encode(f.read()).decode('utf-8')
+            os.remove(output_path)
+            return video_data
+    else:
+        # Convert to base64 (original behavior)
+        with open(output_path, 'rb') as f:
+            video_data = base64.b64encode(f.read()).decode('utf-8')
+        
+        os.remove(output_path)
+        return video_data
 
 def download_image_from_url(url: str) -> Image.Image:
     """Download and validate image from URL or data URL"""
@@ -311,7 +374,7 @@ def download_image_from_url(url: str) -> Image.Image:
     except Exception as e:
         raise Exception(f"Failed to download image from {url}: {str(e)}")
 
-def create_morphing_fallback(source_image: Image.Image, target_image: Image.Image) -> str:
+def create_morphing_fallback(source_image: Image.Image, target_image: Image.Image, return_url: bool = False) -> str:
     """Create morphing fallback if AI generation fails"""
     logger.info("🔄 Creating morphing fallback...")
     
@@ -325,9 +388,9 @@ def create_morphing_fallback(source_image: Image.Image, target_image: Image.Imag
         blended = (1 - alpha) * source_array + alpha * target_array
         frames.append(blended.astype(np.uint8))
     
-    return create_video_from_frames(frames)
+    return create_video_from_frames(frames, return_url=return_url)
 
-def generate_ai_kiss_video(source_url: str, target_url: str) -> Dict[str, Any]:
+def generate_ai_kiss_video(source_url: str, target_url: str, return_url: bool = False) -> Dict[str, Any]:
     """Main AI video generation using network volume models"""
     start_time = time.time()
     
@@ -344,15 +407,14 @@ def generate_ai_kiss_video(source_url: str, target_url: str) -> Dict[str, Any]:
         # Generate frames
         frames = generate_kiss_video_frames(source_image, target_image, pipeline)
         
-        # Create video
-        video_b64 = create_video_from_frames(frames)
+        # Create video with chosen output format
+        video_result = create_video_from_frames(frames, return_url=return_url)
         
         processing_time = time.time() - start_time
         
-        return {
+        result = {
             "status": "success", 
             "message": "Kiss video generated successfully - Enhanced morphing with AI-guided frames",
-            "video": video_b64,
             "processing_time": f"{processing_time:.1f}s",
             "num_frames": len(frames),
             "model_used": "Enhanced Morphing (Wan-AI model detected but bypassed)",
@@ -360,6 +422,20 @@ def generate_ai_kiss_video(source_url: str, target_url: str) -> Dict[str, Any]:
             "resolution": "512x512",
             "note": "Custom Wan-AI model found but requires specialized loading - using enhanced fallback"
         }
+        
+        if return_url:
+            # Add video URL info
+            result.update({
+                "video_url": video_result["video_url"],
+                "video_filename": video_result["filename"],
+                "file_size_bytes": video_result["file_size"],
+                "expires_in": video_result["expires_in"]
+            })
+        else:
+            # Add base64 video
+            result["video"] = video_result
+        
+        return result
         
     except Exception as e:
         processing_time = time.time() - start_time
@@ -369,15 +445,25 @@ def generate_ai_kiss_video(source_url: str, target_url: str) -> Dict[str, Any]:
         try:
             source_image = download_image_from_url(source_url)
             target_image = download_image_from_url(target_url)
-            fallback_video = create_morphing_fallback(source_image, target_image)
+            fallback_video = create_morphing_fallback(source_image, target_image, return_url)
             
-            return {
+            result = {
                 "status": "fallback_success",
-                "video": fallback_video,
                 "processing_time": f"{processing_time:.1f}s",
                 "model_used": "morphing_fallback",
                 "error": str(e)
             }
+            
+            if return_url and isinstance(fallback_video, dict):
+                result.update({
+                    "video_url": fallback_video["video_url"],
+                    "video_filename": fallback_video["filename"],
+                    "file_size_bytes": fallback_video["file_size"]
+                })
+            else:
+                result["video"] = fallback_video
+                
+            return result
         except Exception as fallback_error:
             return {
                 "status": "error",
@@ -669,6 +755,10 @@ def handler(job):
         source_image_url = job_input.get('source_image_url')
         target_image_url = job_input.get('target_image_url')
         
+        # Output format option
+        output_format = job_input.get('output_format', 'base64')  # 'base64' or 'url'
+        return_url = (output_format == 'url')
+        
         # Support both URL and base64 inputs
         source_image = job_input.get('source_image')
         target_image = job_input.get('target_image')
@@ -692,14 +782,14 @@ def handler(job):
             return {
                 "status": "error",
                 "error": "Both source_image_url and target_image_url required",
-                "usage": "Provide image URLs: {'source_image_url': 'https://...', 'target_image_url': 'https://...'}"
+                "usage": "Provide image URLs: {'source_image_url': 'https://...', 'target_image_url': 'https://...', 'output_format': 'url' (optional)}"
             }
         
         # Optimize GPU before generation
         optimize_gpu_memory()
         
         # Generate video using network volume models
-        result = generate_ai_kiss_video(source_image_url, target_image_url)
+        result = generate_ai_kiss_video(source_image_url, target_image_url, return_url)
         
         # Cleanup after generation
         optimize_gpu_memory()
