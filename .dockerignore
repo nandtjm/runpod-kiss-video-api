@@ -1,0 +1,48 @@
+# Git files
+.git
+.gitignore
+
+# Documentation (reduce image size)
+*.md
+README.md
+SETUP_INSTRUCTIONS.md
+DEBUG_COMMANDS.md
+COMPLETE_ENVIRONMENT_VARIABLES.md
+FIX_DOCKER_BUILD_ISSUE.md
+ISSUES_AND_FIXES.md
+
+# Test files
+*_test.py
+tests/
+
+# Temporary files
+*.tmp
+*.log
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual environments
+venv/
+env/
+.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backup files
+*.backup
+Dockerfile.backup
+Dockerfile.*
+
+# Keep only main Dockerfile
+!Dockerfile
