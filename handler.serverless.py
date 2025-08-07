@@ -252,18 +252,27 @@ def upload_to_temp_storage(file_path: str, filename: str) -> str:
         
         with open(file_path, 'rb') as f:
             files = {'file': (filename, f, 'video/mp4')}
-            response = requests.post('https://file.io', files=files)
+            # Add timeout and headers
+            headers = {'User-Agent': 'RunPod-Kiss-Video-Generator/1.0'}
+            response = requests.post('https://file.io', files=files, headers=headers, timeout=30)
             
+        logger.info(f"Upload response status: {response.status_code}")
+        logger.info(f"Upload response text: {response.text[:200]}...")
+        
         if response.status_code == 200:
-            result = response.json()
-            if result.get('success'):
-                upload_url = result['link']
-                logger.info(f"✅ Upload successful: {upload_url}")
-                return upload_url
-            else:
-                raise Exception(f"Upload failed: {result}")
+            try:
+                result = response.json()
+                if result.get('success'):
+                    upload_url = result['link']
+                    logger.info(f"✅ Upload successful: {upload_url}")
+                    return upload_url
+                else:
+                    raise Exception(f"Upload failed: {result}")
+            except ValueError as json_error:
+                # Not valid JSON response
+                raise Exception(f"Invalid JSON response: {response.text[:200]}")
         else:
-            raise Exception(f"HTTP {response.status_code}: {response.text}")
+            raise Exception(f"HTTP {response.status_code}: {response.text[:200]}")
             
     except Exception as e:
         logger.error(f"❌ Upload to temp storage failed: {e}")
@@ -424,13 +433,19 @@ def generate_ai_kiss_video(source_url: str, target_url: str, return_url: bool = 
         }
         
         if return_url:
-            # Add video URL info
-            result.update({
-                "video_url": video_result["video_url"],
-                "video_filename": video_result["filename"],
-                "file_size_bytes": video_result["file_size"],
-                "expires_in": video_result["expires_in"]
-            })
+            # Check if video_result is a dict (successful URL) or string (fallback base64)
+            if isinstance(video_result, dict):
+                # Successful URL upload
+                result.update({
+                    "video_url": video_result["video_url"],
+                    "video_filename": video_result["filename"],
+                    "file_size_bytes": video_result["file_size"],
+                    "expires_in": video_result["expires_in"]
+                })
+            else:
+                # Upload failed, fell back to base64
+                result["video"] = video_result
+                result["note"] += " (Upload failed, returned base64 instead)"
         else:
             # Add base64 video
             result["video"] = video_result
@@ -455,13 +470,17 @@ def generate_ai_kiss_video(source_url: str, target_url: str, return_url: bool = 
             }
             
             if return_url and isinstance(fallback_video, dict):
+                # Successful URL upload
                 result.update({
                     "video_url": fallback_video["video_url"],
                     "video_filename": fallback_video["filename"],
                     "file_size_bytes": fallback_video["file_size"]
                 })
             else:
+                # Base64 fallback (either requested or upload failed)
                 result["video"] = fallback_video
+                if return_url:
+                    result["note"] = "Upload failed, returned base64 instead"
                 
             return result
         except Exception as fallback_error:
