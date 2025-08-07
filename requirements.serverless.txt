@@ -1,8 +1,6 @@
 # Minimal Serverless Requirements - CUDA 12.8 Compatible
 # Network Volume Optimized - No model downloads
-
-# Core requirements
-runpod>=1.6.0,<2.0.0
+# RunPod installed separately in Dockerfile
 
 # Essential AI packages (minimal versions)
 diffusers>=0.21.0,<1.0.0

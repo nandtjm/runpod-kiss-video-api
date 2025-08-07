@@ -1,7 +1,7 @@
 # RunPod Serverless AI Kiss Video Generator
-# Use latest available RunPod PyTorch image with CUDA 12+
+# Use PyTorch official image with CUDA 12.8+ support
 
-FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
 
 # Set working directory
 WORKDIR /app
@@ -24,7 +24,7 @@ ENV TRANSFORMERS_CACHE=/runpod-volume/models/.cache/transformers
 ENV DIFFUSERS_CACHE=/runpod-volume/models/.cache/diffusers
 ENV TORCH_HOME=/runpod-volume/models/.cache/torch
 
-# System dependencies
+# System dependencies for CUDA 12.8+
 RUN apt-get update && apt-get install -y \
     git \
     wget \
@@ -35,7 +35,11 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxrender-dev \
     libgomp1 \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
+
+# Install RunPod SDK first
+RUN pip install --no-cache-dir runpod>=1.6.0
 
 # Copy requirements and install Python dependencies
 COPY requirements.serverless.txt .
