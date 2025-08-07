@@ -353,6 +353,134 @@ def check_environment() -> Dict[str, Any]:
     
     return env_info
 
+def explore_volume_structure() -> Dict[str, Any]:
+    """Debug function to explore network volume structure and find models"""
+    try:
+        volume_info = {
+            "volume_mounted": os.path.exists("/runpod-volume"),
+            "volume_contents": {},
+            "model_search_results": {},
+            "recommendations": []
+        }
+        
+        if volume_info["volume_mounted"]:
+            # Explore volume contents
+            try:
+                contents = os.listdir("/runpod-volume")
+                for item in contents[:10]:  # First 10 items
+                    item_path = f"/runpod-volume/{item}"
+                    if os.path.isdir(item_path):
+                        try:
+                            subitems = os.listdir(item_path)[:5]
+                            volume_info["volume_contents"][f"{item}/"] = subitems
+                        except:
+                            volume_info["volume_contents"][f"{item}/"] = "access_denied"
+                    else:
+                        size = os.path.getsize(item_path) if os.path.isfile(item_path) else 0
+                        volume_info["volume_contents"][item] = f"{size} bytes"
+            except Exception as e:
+                volume_info["volume_contents"] = f"Error: {e}"
+            
+            # Search for AI models
+            search_patterns = ["wan", "i2v", "kiss", "video", "model", "safetensors", "bin", "pth"]
+            search_locations = [
+                "/runpod-volume",
+                "/runpod-volume/models",
+                "/runpod-volume/Models", 
+                "/runpod-volume/huggingface",
+                "/runpod-volume/AI-Models",
+                "/runpod-volume/cache"
+            ]
+            
+            for location in search_locations:
+                if os.path.exists(location):
+                    try:
+                        items = os.listdir(location)
+                        matches = []
+                        for item in items:
+                            for pattern in search_patterns:
+                                if pattern.lower() in item.lower():
+                                    item_path = os.path.join(location, item)
+                                    if os.path.isdir(item_path):
+                                        # Count files in model directory
+                                        try:
+                                            file_count = len(os.listdir(item_path))
+                                            matches.append(f"{item}/ ({file_count} files)")
+                                        except:
+                                            matches.append(f"{item}/ (access denied)")
+                                    else:
+                                        matches.append(item)
+                                    break
+                        
+                        volume_info["model_search_results"][location] = matches[:5]
+                        
+                        # Generate recommendations
+                        if matches:
+                            volume_info["recommendations"].append(
+                                f"Found models in {location}: {matches[:3]}"
+                            )
+                            if "wan" in str(matches).lower() or "i2v" in str(matches).lower():
+                                volume_info["recommendations"].append(
+                                    f"🎯 Recommended MODEL_CACHE_DIR: {location}"
+                                )
+                    except Exception as e:
+                        volume_info["model_search_results"][location] = f"Error: {e}"
+        
+        return {
+            "status": "debug_complete",
+            "message": "Volume structure explored",
+            "volume_info": volume_info
+        }
+        
+    except Exception as e:
+        return {
+            "status": "debug_error",
+            "error": str(e)
+        }
+
+def check_gpu_compatibility() -> Dict[str, Any]:
+    """Debug function to check GPU compatibility with PyTorch"""
+    try:
+        gpu_info = {
+            "cuda_available": torch.cuda.is_available(),
+            "pytorch_version": torch.__version__,
+            "cuda_version": torch.version.cuda if torch.cuda.is_available() else None
+        }
+        
+        if torch.cuda.is_available():
+            gpu_info.update({
+                "gpu_name": torch.cuda.get_device_name(0),
+                "gpu_count": torch.cuda.device_count(),
+                "compute_capability": torch.cuda.get_device_capability(0),
+                "memory_total": f"{torch.cuda.get_device_properties(0).total_memory // 1024**3}GB"
+            })
+            
+            # Check RTX 5090 compatibility
+            if "RTX 5090" in gpu_info["gpu_name"]:
+                major, minor = torch.cuda.get_device_capability(0)
+                compute_cap = f"sm_{major}{minor}"
+                gpu_info["compatibility_issue"] = True
+                gpu_info["issue_description"] = f"RTX 5090 uses {compute_cap} but PyTorch {gpu_info['pytorch_version']} only supports up to sm_90"
+                gpu_info["recommendations"] = [
+                    "Switch to RTX 4090 GPU (fully compatible)",
+                    "Use A100 40GB GPU (enterprise grade)",
+                    "Update base image to: runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04"
+                ]
+            else:
+                gpu_info["compatibility_issue"] = False
+                gpu_info["status"] = "GPU fully compatible with current PyTorch"
+        
+        return {
+            "status": "gpu_debug_complete",
+            "gpu_info": gpu_info
+        }
+        
+    except Exception as e:
+        return {
+            "status": "gpu_debug_error",
+            "error": str(e)
+        }
+
 def health_check() -> Dict[str, Any]:
     """Serverless health check"""
     try:
@@ -398,6 +526,14 @@ def handler(job):
                 "environment": env_info,
                 "deployment_mode": "serverless_network_volume"
             }
+        
+        # Debug mode - explore volume structure
+        if job_input.get('debug') == 'check_volume':
+            return explore_volume_structure()
+        
+        # GPU compatibility check
+        if job_input.get('debug') == 'check_gpu':
+            return check_gpu_compatibility()
         
         # Video generation
         source_image = job_input.get('source_image')
