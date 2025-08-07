@@ -91,18 +91,37 @@ def load_ai_models():
     logger.info("🔄 Loading AI models from network volume...")
     
     try:
-        # Use basic DiffusionPipeline to avoid complex dependencies
+        logger.info(f"🔍 Attempting to load custom Wan-AI model from: {WAN_MODEL_PATH}")
+        
+        # This is a custom sharded model - load with safetensors
         from diffusers import DiffusionPipeline
+        from safetensors import safe_open
         
-        logger.info(f"🔍 Attempting to load from: {WAN_MODEL_PATH}")
+        # Check if this is the custom sharded format
+        index_file = os.path.join(WAN_MODEL_PATH, "diffusion_pytorch_model.safetensors.index.json")
+        config_file = os.path.join(WAN_MODEL_PATH, "config.json")
         
-        # Simple pipeline loading with minimal config
-        pipeline = DiffusionPipeline.from_pretrained(
-            WAN_MODEL_PATH,
-            torch_dtype=torch.float16 if DEVICE == "cuda" else torch.float32,
-            local_files_only=True,
-            cache_dir=None
-        )
+        if os.path.exists(index_file) and os.path.exists(config_file):
+            logger.info("🔄 Loading custom sharded Wan-AI model...")
+            
+            # Try to load as a custom pipeline with trust_remote_code
+            pipeline = DiffusionPipeline.from_pretrained(
+                WAN_MODEL_PATH,
+                torch_dtype=torch.float16 if DEVICE == "cuda" else torch.float32,
+                local_files_only=True,
+                cache_dir=None,
+                trust_remote_code=True,  # Important for custom models
+                use_safetensors=True
+            )
+        else:
+            # Fallback to standard loading
+            logger.info("🔄 Falling back to standard pipeline loading...")
+            pipeline = DiffusionPipeline.from_pretrained(
+                WAN_MODEL_PATH,
+                torch_dtype=torch.float16 if DEVICE == "cuda" else torch.float32,
+                local_files_only=True,
+                cache_dir=None
+            )
         
         if DEVICE == "cuda":
             pipeline = pipeline.to(DEVICE)
