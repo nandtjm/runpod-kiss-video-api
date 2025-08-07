@@ -91,21 +91,17 @@ def load_ai_models():
     logger.info("🔄 Loading AI models from network volume...")
     
     try:
-        # Try basic diffusion pipeline first to avoid CLIP issues
-        from diffusers import AutoPipelineForText2Image
+        # Use basic DiffusionPipeline to avoid complex dependencies
+        from diffusers import DiffusionPipeline
         
         logger.info(f"🔍 Attempting to load from: {WAN_MODEL_PATH}")
         
-        # Load with minimal components to avoid CLIP import issues
-        pipeline = AutoPipelineForText2Image.from_pretrained(
+        # Simple pipeline loading with minimal config
+        pipeline = DiffusionPipeline.from_pretrained(
             WAN_MODEL_PATH,
             torch_dtype=torch.float16 if DEVICE == "cuda" else torch.float32,
-            safety_checker=None,
-            requires_safety_checker=False,
             local_files_only=True,
-            cache_dir=None,
-            use_safetensors=True,
-            trust_remote_code=True  # Allow custom pipeline code
+            cache_dir=None
         )
         
         if DEVICE == "cuda":
