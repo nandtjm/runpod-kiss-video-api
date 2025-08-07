@@ -5,13 +5,14 @@
 runpod>=1.6.0,<2.0.0
 
 # AI Model framework (no model downloads!)
-diffusers>=0.24.0,<1.0.0
-transformers>=4.35.0,<5.0.0
-accelerate>=0.24.0,<1.0.0
+diffusers>=0.30.0,<1.0.0
+transformers>=4.40.0,<5.0.0
+accelerate>=0.30.0,<1.0.0
 
 # Hugging Face ecosystem (for model loading only)
 huggingface-hub>=0.27.0,<1.0.0
 safetensors>=0.4.0,<1.0.0
+tokenizers>=0.15.0,<1.0.0
 
 # Computer Vision
 opencv-python-headless>=4.8.0,<5.0.0

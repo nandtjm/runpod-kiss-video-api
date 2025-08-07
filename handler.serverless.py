@@ -91,16 +91,18 @@ def load_ai_models():
     logger.info("🔄 Loading AI models from network volume...")
     
     try:
-        from diffusers import DiffusionPipeline
+        # Try loading with minimal dependencies first
+        from diffusers import StableDiffusionPipeline
         
-        # Load Wan-AI model from network volume
-        pipeline = DiffusionPipeline.from_pretrained(
+        # Load Wan-AI model from network volume with simplified config
+        pipeline = StableDiffusionPipeline.from_pretrained(
             WAN_MODEL_PATH,
             torch_dtype=torch.float16 if DEVICE == "cuda" else torch.float32,
             safety_checker=None,
             requires_safety_checker=False,
             local_files_only=True,  # Only use network volume files
-            cache_dir=None  # Don't cache - use direct from volume
+            cache_dir=None,  # Don't cache - use direct from volume
+            use_safetensors=True
         )
         
         if DEVICE == "cuda":
