@@ -1,7 +1,7 @@
 # RunPod Serverless AI Kiss Video Generator
-# Optimized for CUDA 12.8+ - Uses Network Volume Models
+# Use latest available RunPod PyTorch image with CUDA 12+
 
-FROM runpod/pytorch:2.5.0-py3.11-cuda12.6.3-devel-ubuntu22.04
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 # Set working directory
 WORKDIR /app
