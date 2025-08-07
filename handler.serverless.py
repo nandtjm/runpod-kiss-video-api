@@ -23,6 +23,7 @@ import numpy as np
 from PIL import Image
 import cv2
 import io
+import requests
 from loguru import logger
 
 # Configure logging
@@ -252,6 +253,49 @@ def create_video_from_frames(frames: list, fps: int = 24) -> str:
     os.remove(output_path)
     return video_data
 
+def download_image_from_url(url: str) -> Image.Image:
+    """Download and validate image from URL or data URL"""
+    try:
+        logger.info(f"📥 Processing image from: {url[:100]}...")
+        
+        # Handle data URLs (base64 embedded)
+        if url.startswith('data:'):
+            logger.info("🔄 Processing data URL...")
+            header, encoded = url.split(',', 1)
+            image_data = base64.b64decode(encoded)
+            image = Image.open(io.BytesIO(image_data)).convert('RGB')
+        else:
+            # Download from HTTP/HTTPS URL
+            headers = {
+                'User-Agent': 'RunPod AI Kiss Video Generator/1.0',
+                'Accept': 'image/*'
+            }
+            
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            # Validate content type
+            content_type = response.headers.get('content-type', '').lower()
+            if not content_type.startswith('image/'):
+                raise ValueError(f"Invalid content type: {content_type}")
+            
+            # Load image
+            image = Image.open(io.BytesIO(response.content)).convert('RGB')
+        
+        # Validate image size
+        if image.size[0] < 64 or image.size[1] < 64:
+            raise ValueError(f"Image too small: {image.size}")
+        
+        if image.size[0] > 4096 or image.size[1] > 4096:
+            logger.info(f"⚠️ Large image {image.size}, resizing...")
+            image = image.resize((min(2048, image.size[0]), min(2048, image.size[1])), Image.LANCZOS)
+        
+        logger.info(f"✅ Image loaded: {image.size}")
+        return image
+        
+    except Exception as e:
+        raise Exception(f"Failed to download image from {url}: {str(e)}")
+
 def create_morphing_fallback(source_image: Image.Image, target_image: Image.Image) -> str:
     """Create morphing fallback if AI generation fails"""
     logger.info("🔄 Creating morphing fallback...")
@@ -268,17 +312,14 @@ def create_morphing_fallback(source_image: Image.Image, target_image: Image.Imag
     
     return create_video_from_frames(frames)
 
-def generate_ai_kiss_video(source_b64: str, target_b64: str) -> Dict[str, Any]:
+def generate_ai_kiss_video(source_url: str, target_url: str) -> Dict[str, Any]:
     """Main AI video generation using network volume models"""
     start_time = time.time()
     
     try:
-        # Decode images
-        source_data = base64.b64decode(source_b64)
-        target_data = base64.b64decode(target_b64)
-        
-        source_image = Image.open(io.BytesIO(source_data)).convert('RGB')
-        target_image = Image.open(io.BytesIO(target_data)).convert('RGB')
+        # Download images from URLs
+        source_image = download_image_from_url(source_url)
+        target_image = download_image_from_url(target_url)
         
         logger.info(f"📸 Processing: {source_image.size} + {target_image.size}")
         
@@ -310,8 +351,8 @@ def generate_ai_kiss_video(source_b64: str, target_b64: str) -> Dict[str, Any]:
         
         # Fallback to morphing
         try:
-            source_image = Image.open(io.BytesIO(base64.b64decode(source_b64))).convert('RGB')
-            target_image = Image.open(io.BytesIO(base64.b64decode(target_b64))).convert('RGB')
+            source_image = download_image_from_url(source_url)
+            target_image = download_image_from_url(target_url)
             fallback_video = create_morphing_fallback(source_image, target_image)
             
             return {
@@ -536,21 +577,33 @@ def handler(job):
             return check_gpu_compatibility()
         
         # Video generation
+        source_image_url = job_input.get('source_image_url')
+        target_image_url = job_input.get('target_image_url')
+        
+        # Support both URL and base64 inputs
         source_image = job_input.get('source_image')
         target_image = job_input.get('target_image')
         
-        if not source_image or not target_image:
+        if source_image_url and target_image_url:
+            # Use URLs (preferred)
+            pass
+        elif source_image and target_image:
+            # Legacy base64 support
+            logger.info("⚠️ Using legacy base64 input (deprecated)")
+            source_image_url = f"data:image/jpeg;base64,{source_image}"
+            target_image_url = f"data:image/jpeg;base64,{target_image}"
+        else:
             return {
                 "status": "error",
-                "error": "Both source_image and target_image required",
-                "usage": "Provide base64-encoded face images"
+                "error": "Both source_image_url and target_image_url required",
+                "usage": "Provide image URLs: {'source_image_url': 'https://...', 'target_image_url': 'https://...'}"
             }
         
         # Optimize GPU before generation
         optimize_gpu_memory()
         
         # Generate video using network volume models
-        result = generate_ai_kiss_video(source_image, target_image)
+        result = generate_ai_kiss_video(source_image_url, target_image_url)
         
         # Cleanup after generation
         optimize_gpu_memory()
