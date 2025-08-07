@@ -24,10 +24,14 @@ def main():
         # Try different ways to import the handler
         handler = None
         
-        # Method 1: Try handler.serverless
+        # Method 1: Try handler.serverless (import from file)
         try:
             print("📦 Attempting to import handler.serverless...")
-            from handler.serverless import handler
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("handler_serverless", "handler.serverless.py")
+            handler_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(handler_module)
+            handler = handler_module.handler
             print("✅ Successfully imported handler.serverless")
         except (ImportError, ModuleNotFoundError):
             print("⚠️  handler.serverless not found, trying alternatives...")
