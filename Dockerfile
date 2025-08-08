@@ -1,7 +1,7 @@
 # RunPod Serverless AI Kiss Video Generator
 # Use RunPod's official PyTorch base image with RTX 5090 support (CUDA 12.8+)
 
-FROM runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 # Set working directory
 WORKDIR /app
@@ -10,14 +10,14 @@ WORKDIR /app
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV CUDA_VISIBLE_DEVICES=0
-ENV TORCH_CUDA_ARCH_LIST="8.9,9.0,12.0"  # Added sm_120 for RTX 5090
+ENV TORCH_CUDA_ARCH_LIST="8.9,9.0,12.0"
 ENV MODEL_CACHE_DIR=/runpod-volume/models
 
 # RTX 5090 GPU memory optimization
 ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:1024
 ENV CUDA_LAUNCH_BLOCKING=0
 ENV TORCH_BACKENDS_CUDNN_BENCHMARK=1
-ENV OMP_NUM_THREADS=1  # Avoid CPU threading overhead
+ENV OMP_NUM_THREADS=1
 
 # Cache directories (use network volume)
 ENV HF_HOME=/runpod-volume/models/.cache
