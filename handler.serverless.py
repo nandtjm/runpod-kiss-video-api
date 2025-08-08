@@ -34,7 +34,15 @@ logger.info("🚀 Serverless AI Kiss Video Generator - Network Volume Mode")
 MODEL_CACHE_DIR = os.getenv("MODEL_CACHE_DIR", "/runpod-volume/models")
 WAN_MODEL_PATH = f"{MODEL_CACHE_DIR}/Wan2.1-I2V-14B-720P"
 LORA_MODEL_PATH = f"{MODEL_CACHE_DIR}/kissing-lora"
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+# Don't initialize CUDA during import - do it lazily
+def get_device():
+    """Get device safely - only when actually needed"""
+    try:
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except Exception as e:
+        logger.warning(f"CUDA check failed: {e}, using CPU")
+        return "cpu"
 
 logger.info(f"📁 Model cache directory: {MODEL_CACHE_DIR}")
 logger.info(f"🤖 Wan-AI model path: {WAN_MODEL_PATH}")
@@ -98,7 +106,8 @@ def load_ai_models():
         # Load Wan-AI model with kissing LoRA using PyTorch 2.8 + CUDA 12.8
         logger.info("🎯 Loading Wan-AI 14B I2V model with RTX 5090 support")
         
-        if DEVICE == "cuda":
+        device = get_device()
+        if device == "cuda":
             # Verify CUDA compute capability for RTX 5090
             cuda_capability = torch.cuda.get_device_capability(0)
             logger.info(f"🔧 CUDA Compute Capability: {cuda_capability}")
@@ -114,11 +123,11 @@ def load_ai_models():
             # Load base model
             pipeline = DiffusionPipeline.from_pretrained(
                 WAN_MODEL_PATH,
-                torch_dtype=torch.float16 if DEVICE == "cuda" else torch.float32,
+                torch_dtype=torch.float16 if device == "cuda" else torch.float32,
                 safety_checker=None,
                 requires_safety_checker=False,
                 local_files_only=True,
-                variant="fp16" if DEVICE == "cuda" else None
+                variant="fp16" if device == "cuda" else None
             )
             
             # Load kissing LoRA
@@ -139,8 +148,9 @@ def load_ai_models():
                 logger.warning(f"⚠️ LoRA path not found: {LORA_MODEL_PATH}")
             
             # Optimize for RTX 5090
-            if DEVICE == "cuda":
-                pipeline = pipeline.to(DEVICE)
+            device = get_device()
+        if device == "cuda":
+                pipeline = pipeline.to(device)
                 pipeline.enable_memory_efficient_attention()
                 pipeline.enable_vae_slicing()
                 logger.info("✅ RTX 5090 optimizations enabled")
@@ -402,7 +412,7 @@ def generate_kiss_video_frames(source_img: Image.Image, target_img: Image.Image,
                     flow_shift=5.0,          # Exact LoRA recommended setting
                     height=512,
                     width=512,
-                    generator=torch.Generator(device=DEVICE).manual_seed(42 + i)
+                    generator=torch.Generator(device=get_device()).manual_seed(42 + i)
                 ).images[0]
                 
                 frames.append(np.array(result))
@@ -674,8 +684,8 @@ def check_environment() -> Dict[str, Any]:
     env_info = {
         "python_version": sys.version,
         "torch_version": torch.__version__,
-        "cuda_available": torch.cuda.is_available(),
-        "device": DEVICE,
+        "cuda_available": get_device() == "cuda",
+        "device": get_device(),
         "deployment_mode": "serverless_network_volume"
     }
     
@@ -851,7 +861,7 @@ def check_gpu_compatibility() -> Dict[str, Any]:
     """Debug function to check GPU compatibility with PyTorch"""
     try:
         gpu_info = {
-            "cuda_available": torch.cuda.is_available(),
+            "cuda_available": get_device() == "cuda",
             "pytorch_version": torch.__version__,
             "cuda_version": torch.version.cuda if torch.cuda.is_available() else None
         }
