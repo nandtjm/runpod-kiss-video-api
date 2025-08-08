@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 
 # Configuration - same as test_local.py
-API_KEY = "YOUR_API_KEY"
+API_KEY = "YOUR_RUNPOD_API_KEY"
 ENDPOINT_ID = "63wukybus821bc"
 
 def check_job_status(job_id):
@@ -43,8 +43,8 @@ def decode_and_save_video(base64_data, filename):
 def main():
     # These are the job IDs from the test run - replace with your actual job IDs
     job_ids = [
-        "c2d7ba9c-5ed0-4042-9aeb-4878c337b845-e2",  # Base64 test
-        "29e19824-4ec4-497f-8156-2b16efc3046d-e1"   # URL test
+        "7bc095f3-1f25-4a59-ae2c-ef7b47cac0e1-e2",  # Base64 test  
+        "59f6aa86-1e78-4e31-be65-211c96098560-e1"   # URL test
     ]
     
     print("🔍 Checking RunPod job results...")

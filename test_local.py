@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 
 # Configuration
-API_KEY = "YOUR_API_KEY"  # Replace with your actual RunPod API key
+API_KEY = "YOUR_RUNPOD_API_KEY"  # Replace with your actual RunPod API key
 ENDPOINT_ID = "63wukybus821bc"  # Your endpoint ID
 API_URL = f"https://api.runpod.ai/v2/{ENDPOINT_ID}/run"
 
