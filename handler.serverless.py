@@ -243,7 +243,7 @@ def preprocess_image(image: Image.Image, size: Tuple[int, int] = (512, 512)) -> 
     return result
 
 def generate_kiss_video_frames(source_img: Image.Image, target_img: Image.Image, 
-                             pipeline, num_frames: int = 24) -> list:
+                             pipeline, num_frames: int = 120) -> list:  # 5-second video at 24fps
     """Generate kiss animation frames using network volume models"""
     frames = []
     
@@ -259,17 +259,15 @@ def generate_kiss_video_frames(source_img: Image.Image, target_img: Image.Image,
             t = i / (num_frames - 1)
             progress = 0.5 * (1 + np.sin(2 * np.pi * t - np.pi/2))
             
-            # Kiss prompts with proper LoRA trigger
-            kiss_prompts = [
-                "k144ing kissing, two faces approaching for a kiss, romantic lighting, soft focus",
-                "k144ing kissing, faces getting closer, intimate moment, warm atmosphere",
-                "k144ing kissing, lips about to touch, romantic tension, beautiful lighting",
-                "k144ing kissing, passionate kiss between two people, love scene, cinematic",
-                "k144ing kissing, tender kiss, romantic scene, soft lighting, emotional"
-            ]
-            
-            prompt_idx = min(int(progress * len(kiss_prompts)), len(kiss_prompts) - 1)
-            prompt = kiss_prompts[prompt_idx]
+            # Use EXACT Remade-AI LoRA prompt structure
+            if t < 0.25:  # Phase 1: Approach
+                phase_prompt = "A man and a woman are standing close together. They are looking at each other with romantic anticipation, then they engage in k144ing kissing."
+            elif t < 0.5:  # Phase 2: Getting closer  
+                phase_prompt = "A man and a woman are moving closer together. Their faces are getting closer with romantic tension, then they engage in k144ing kissing."
+            elif t < 0.75:  # Phase 3: Kiss moment
+                phase_prompt = "A man and a woman are embracing. They are passionately k144ing kissing in a romantic love scene."
+            else:  # Phase 4: Embrace
+                phase_prompt = "A man and a woman are embracing tenderly. They are k144ing kissing, while still embracing each other in a romantic conclusion."
             
             try:
                 # Control image based on progress
@@ -285,12 +283,13 @@ def generate_kiss_video_frames(source_img: Image.Image, target_img: Image.Image,
                     blended_array = (1 - alpha) * source_array + alpha * target_array
                     control_image = Image.fromarray(blended_array.astype(np.uint8))
                 
-                # Generate frame using network volume models
+                # Generate frame using EXACT LoRA settings
                 result = pipeline(
-                    prompt=prompt,
+                    prompt=phase_prompt,
                     image=control_image,
-                    num_inference_steps=12,  # Fast for serverless
-                    guidance_scale=6.5,
+                    num_inference_steps=12,     # Sufficient quality
+                    guidance_scale=6.0,         # EXACT LoRA recommendation
+                    flow_shift=5.0,            # EXACT LoRA recommendation
                     height=512,
                     width=512,
                     generator=torch.Generator(device=DEVICE).manual_seed(42 + i)
