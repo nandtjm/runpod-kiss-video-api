@@ -43,8 +43,8 @@ def decode_and_save_video(base64_data, filename):
 def main():
     # These are the job IDs from the test run - replace with your actual job IDs
     job_ids = [
-        "7bc095f3-1f25-4a59-ae2c-ef7b47cac0e1-e2",  # Base64 test  
-        "59f6aa86-1e78-4e31-be65-211c96098560-e1"   # URL test
+        "ac013cf5-29f7-47f8-9c1b-f8a9d8888afb-e2",  # Base64 test
+        "e98a2331-f7d7-4cba-8d2a-f136def769c5-e2"   # URL test
     ]
     
     print("🔍 Checking RunPod job results...")

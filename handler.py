@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-RunPod Serverless Handler - Guaranteed Working Version
-Fixes all common serverless endpoint issues
+RunPod Serverless Handler - RTX 5090 CUDA Compatible Version
+Fixes all common serverless endpoint issues with latest CUDA 12.4.1 support
+Version: 2024-08-08 RTX 5090 Update
 """
 
 import os
